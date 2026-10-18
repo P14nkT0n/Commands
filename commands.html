@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Editor - Aprende a Programar</title>
+
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <!-- Tema oscuro Dracula -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <!-- Addon CSS para indent guides -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            background: #2d2d2d;
+            padding: 8px 16px;
+            display: flex;
+            gap: 16px;
+            border-bottom: 1px solid #3c3c3c;
+            align-items: center;
+            height: 48px;
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .toolbar-button {
+            background: #3c3c3c;
+            border: none;
+            color: #d4d4d4;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+
+        .toolbar-button:hover {
+            background: #4a4a4a;
+        }
+
+        .toolbar-button.run {
+            background: #0e639c;
+            color: white;
+        }
+        .toolbar-button.run:hover {
+            background: #1177bb;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 48px);
+            overflow: hidden;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            background: #1e1e1e;
+            border-right: 1px solid #3c3c3c;
+            overflow: hidden;
+            min-width: 200px;
+            height: 100%;
+        }
+
+        .panel.hidden {
+            display: none;
+        }
+
+        .panel-header {
+            background: #2d2d2d;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #3c3c3c;
+            height: 40px;
+            flex-shrink: 0;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .panel-header:active {
+            cursor: grabbing;
+        }
+
+        .panel-header.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .panel-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #ccc;
+            text-transform: uppercase;
+        }
+
+        .panel-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        .panel-controls button {
+            background: #3c3c3c;
+            border: none;
+            color: #d4d4d4;
+            width: 24px;
+            height: 24px;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: 0.2s;
+            pointer-events: auto;
+        }
+
+        .panel-controls button:hover {
+            background: #4a4a4a;
+        }
+
+        .panel-controls button.close-btn:hover {
+            background: #c42b1c;
+        }
+
+        .font-size-controls {
+            display: flex;
+            gap: 2px;
+        }
+
+        .font-size-controls button {
+            width: 22px;
+            height: 22px;
+            font-size: 12px;
+        }
+
+        .code-container {
+            flex: 1;
+            overflow: hidden;
+            height: calc(100% - 40px);
+        }
+
+        /* Estilos para CodeMirror */
+        .CodeMirror {
+            height: 100%;
+            font-family: 'Consolas', 'Fira Code', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* ============================================================
+           TEMA PERSONALIZADO (estilo Ruby)
+           - Amarillo (strings) → Azul
+           - Blanco (texto base, punctuation, meta) → Morado
+           ============================================================ */
+        .cm-s-dracula.CodeMirror {
+            color: #c792ea !important;   /* morado: texto base */
+        }
+        .cm-s-dracula .cm-string,
+        .cm-s-dracula .cm-string-2 {
+            color: #82aaff !important;   /* azul: strings (antes amarillo) */
+        }
+        .cm-s-dracula .cm-variable-2,
+        .cm-s-dracula .cm-meta,
+        .cm-s-dracula .cm-bracket {
+            color: #c792ea !important;   /* morado: antes blanco */
+        }
+
+        /* Guías de indentación mejoradas */
+        .CodeMirror-indent-guide {
+            position: relative;
+            border-right: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .cm-tab {
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1" height="14" viewBox="0 0 1 14"><line x1="0.5" y1="0" x2="0.5" y2="14" stroke="rgba(255,255,255,0.08)" stroke-width="1"/></svg>') no-repeat;
+        }
+
+        .CodeMirror-activeline-background {
+            background: rgba(255, 255, 255, 0.03) !important;
+        }
+
+        .CodeMirror-activeline .CodeMirror-indent-guide {
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .CodeMirror-foldgutter {
+            width: 16px;
+        }
+
+        .CodeMirror-foldgutter-open,
+        .CodeMirror-foldgutter-folded {
+            cursor: pointer;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .CodeMirror-foldgutter-open:after {
+            content: "▾";
+        }
+
+        .CodeMirror-foldgutter-folded:after {
+            content: "▸";
+        }
+
+        .output-content {
+            padding: 16px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            height: 100%;
+            overflow: auto;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .input-container {
+            display: flex;
+            align-items: center;
+            margin: 4px 0;
+            background: #2d2d2d;
+            border: 1px solid #0e639c;
+            border-radius: 4px;
+            padding: 4px 8px;
+        }
+
+        .input-prompt {
+            color: #0e639c;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+
+        .input-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #d4d4d4;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .input-submit {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .input-submit:hover {
+            background: #1177bb;
+        }
+
+        .resize-handle-vertical {
+            width: 4px;
+            background: #3c3c3c;
+            cursor: col-resize;
+            height: 100%;
+        }
+        .resize-handle-vertical:hover {
+            background: #0e639c;
+        }
+
+        .resize-handle-horizontal {
+            height: 4px;
+            background: #3c3c3c;
+            cursor: row-resize;
+            width: 100%;
+        }
+        .resize-handle-horizontal:hover {
+            background: #0e639c;
+        }
+
+        .drop-zone {
+            border: 2px dashed #0e639c !important;
+            background: rgba(14, 99, 156, 0.1) !important;
+        }
+
+        .drop-zone * {
+            pointer-events: none;
+        }
+
+        .panel-placeholder {
+            border: 2px dashed #3c3c3c;
+            background: rgba(255, 255, 255, 0.05);
+            min-height: 100px;
+        }
+
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 8px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 18px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #3c3c3c;
+            transition: 0.3s;
+            border-radius: 18px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 2px;
+            bottom: 2px;
+            background-color: #d4d4d4;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #0e639c;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        .switch-label {
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .draggable-panel {
+            transition: transform 0.2s ease;
+            position: relative;
+        }
+
+        .draggable-panel.drag-over {
+            border: 2px solid #0e639c;
+            background: rgba(14, 99, 156, 0.1);
+        }
+
+        .right-panels-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .CodeMirror-gutter {
+            border-right: 1px solid #3c3c3c;
+        }
+
+        .cm-indent {
+            display: inline-block;
+            position: relative;
+        }
+
+        .cm-indent::before {
+            content: '';
+            position: absolute;
+            left: 2px;
+            top: 0;
+            bottom: 0;
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <button class="toolbar-button run" onclick="runCode()" title="Ejecutar código (Ctrl+Enter)">▶️ Run</button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-button" onclick="togglePanel('panel1')">📝 Editor</button>
+            <button class="toolbar-button" onclick="togglePanel('panel3')">▶️ Console</button>
+            <button class="toolbar-button" onclick="togglePanel('panel4')">📔 Notes</button>
+        </div>
+        <div class="switch-container">
+            <label class="switch">
+                <input type="checkbox" id="autoRunSwitch" onchange="toggleAutoRun()">
+                <span class="slider"></span>
+            </label>
+            <span class="switch-label">Auto-run</span>
+        </div>
+    </div>
+
+    <div class="container" id="app">
+        <div class="panel draggable-panel" id="panel1" style="flex: 1;" data-panel-id="panel1">
+            <div class="panel-header" draggable="true" data-panel-id="panel1">
+                <span class="panel-title">Python Editor</span>
+                <div class="panel-controls">
+                    <div class="font-size-controls">
+                        <button onclick="changeFontSize('panel1', -1)">−</button>
+                        <button onclick="changeFontSize('panel1', 1)">+</button>
+                    </div>
+                    <button class="close-btn" onclick="togglePanel('panel1')">✕</button>
+                </div>
+            </div>
+            <div class="code-container">
+                <textarea id="editor-main"></textarea>
+            </div>
+        </div>
+
+        <div class="resize-handle-vertical" id="handleVertical" onmousedown="initResizeVertical(event)"></div>
+
+        <div class="right-panels-container" id="rightPanelContainer">
+            <div class="panel draggable-panel" id="panel3" style="flex: 1;" data-panel-id="panel3">
+                <div class="panel-header" draggable="true" data-panel-id="panel3">
+                    <span class="panel-title">Console Output</span>
+                    <div class="panel-controls">
+                        <div class="font-size-controls">
+                            <button onclick="changeFontSize('panel3', -1)">−</button>
+                            <button onclick="changeFontSize('panel3', 1)">+</button>
+                        </div>
+                        <button class="close-btn" onclick="togglePanel('panel3')">✕</button>
+                    </div>
+                </div>
+                <div class="code-container">
+                    <div class="output-content" id="outputContent">
+                        > Ready to execute...
+                    </div>
+                </div>
+            </div>
+
+            <div class="resize-handle-horizontal" id="handleHorizontal" onmousedown="initResizeHorizontal(event, 'panel3', 'panel4')"></div>
+
+            <div class="panel draggable-panel" id="panel4" style="flex: 1;" data-panel-id="panel4">
+                <div class="panel-header" draggable="true" data-panel-id="panel4">
+                    <span class="panel-title">Notepad</span>
+                    <div class="panel-controls">
+                        <div class="font-size-controls">
+                            <button onclick="changeFontSize('panel4', -1)">−</button>
+                            <button onclick="changeFontSize('panel4', 1)">+</button>
+                        </div>
+                        <button class="close-btn" onclick="togglePanel('panel4')">✕</button>
+                    </div>
+                </div>
+                <div class="code-container">
+                    <textarea id="editor-notes"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CodeMirror JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/indent-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
+
+    <!-- Skulpt (intérprete de Python en JS) -->
+    <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.min.js"></script>
+
+    <script>
+        // ============================================
+        // VARIABLES GLOBALES
+        // ============================================
+        let autoRunEnabled = false;
+        let autoRunTimeout = null;
+        let isWaitingForInput = false;
+        let draggedPanel = null;
+        let dragOverPanel = null;
+
+        // ============================================================
+        // MODO PYTHON "POR LÍNEA"
+        // ------------------------------------------------------------
+        // Cada línea se tokeniza de forma independiente. Si dejas una
+        // comilla, paréntesis o triple-comilla abierta, la línea
+        // siguiente empieza sin estado residual.
+        // ============================================================
+        CodeMirror.defineMode("python-linebased", function(config) {
+            var keywords = /^(?:False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)$/;
+            var builtins = /^(?:print|len|range|str|int|float|bool|list|dict|tuple|set|type|isinstance|super|open|input|abs|sum|min|max|sorted|enumerate|zip|map|filter|self|reversed|repr|hash|id|dir|vars|format|iter|next|chr|ord|hex|bin|oct|round|pow|divmod|all|any|object|Exception|ValueError|TypeError|KeyError|IndexError|ZeroDivisionError|AttributeError)$/;
+
+            function readString(stream) {
+                var quote = stream.peek();
+                if (quote !== '"' && quote !== "'") return null;
+
+                // Triple comilla: se consume hasta cerrar o hasta EOL (si no cierra, NO continúa)
+                if (stream.match(quote + quote + quote, false)) {
+                    stream.next(); stream.next(); stream.next();
+                    while (!stream.eol()) {
+                        if (stream.match(quote + quote + quote, false)) {
+                            stream.next(); stream.next(); stream.next();
+                            break;
+                        }
+                        stream.next();
+                    }
+                } else {
+                    stream.next();
+                    var escaped = false;
+                    while (!stream.eol()) {
+                        var c = stream.next();
+                        if (escaped) { escaped = false; continue; }
+                        if (c === '\\') { escaped = true; continue; }
+                        if (c === quote) break;
+                    }
+                }
+                return "string";
+            }
+
+            return {
+                startState: function() { return {}; },
+                token: function(stream, state) {
+                    if (stream.eatSpace()) return null;
+
+                    var ch = stream.peek();
+
+                    // Comentarios (hasta fin de línea, sin estado persistente)
+                    if (ch === '#') {
+                        stream.skipToEnd();
+                        return "comment";
+                    }
+
+                    // Strings (nunca atraviesan líneas)
+                    if (ch === '"' || ch === "'") {
+                        return readString(stream);
+                    }
+
+                    // Prefijo de string: f, r, b, u (p.ej. f"hola")
+                    if (/[a-zA-Z_]/.test(ch)) {
+                        var nextChar = stream.string.charAt(stream.pos + 1);
+                        if (nextChar === '"' || nextChar === "'") {
+                            var p = ch.toLowerCase();
+                            if (p === 'f' || p === 'r' || p === 'b' || p === 'u') {
+                                stream.next();
+                                return readString(stream);
+                            }
+                        }
+                    }
+
+                    // Números
+                    if (/\d/.test(ch) || (ch === '.' && /\d/.test(stream.string.charAt(stream.pos + 1)))) {
+                        stream.match(/^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[jJ]?/);
+                        return "number";
+                    }
+
+                    // Identificadores / palabras reservadas
+                    if (/[a-zA-Z_]/.test(ch)) {
+                        stream.match(/^[a-zA-Z_]\w*/);
+                        var word = stream.current();
+                        if (keywords.test(word)) return "keyword";
+                        if (builtins.test(word)) return "builtin";
+                        return "variable";
+                    }
+
+                    // Operadores
+                    if (/[+\-*\/%=<>!&|^~]/.test(ch)) {
+                        stream.next();
+                        return "operator";
+                    }
+
+                    // Paréntesis / corchetes / llaves (bracket para matchBrackets)
+                    if (/[()\[\]{}]/.test(ch)) {
+                        stream.next();
+                        return "bracket";
+                    }
+
+                    // Resto de puntuación: usa el color base (morado)
+                    stream.next();
+                    return null;
+                },
+                indent: function(state, textAfter, line) {
+                    var m = line.match(/^[ \t]*/);
+                    var currentIndent = m ? m[0].length : 0;
+                    if (/:[\s]*$/.test(line)) return currentIndent + 4;
+                    return currentIndent;
+                },
+                lineComment: "#"
+            };
+        });
+
+        // ============================================
+        // SISTEMA DE DRAG & DROP PARA INTERCAMBIAR PANELES
+        // ============================================
+        function initDragAndDrop() {
+            const panelHeaders = document.querySelectorAll('.panel-header[draggable="true"]');
+            const panels = document.querySelectorAll('.draggable-panel');
+            const rightContainer = document.getElementById('rightPanelContainer');
+            const appContainer = document.getElementById('app');
+
+            panelHeaders.forEach(header => {
+                header.addEventListener('dragstart', handleDragStart);
+                header.addEventListener('dragend', handleDragEnd);
+            });
+
+            panels.forEach(panel => {
+                panel.addEventListener('dragover', handleDragOver);
+                panel.addEventListener('dragleave', handleDragLeave);
+                panel.addEventListener('drop', handleDrop);
+            });
+
+            rightContainer.addEventListener('dragover', handleDragOverContainer);
+            rightContainer.addEventListener('dragleave', handleDragLeaveContainer);
+            rightContainer.addEventListener('drop', handleDropContainer);
+
+            function handleDragStart(e) {
+                draggedPanel = e.target.closest('.draggable-panel');
+                if (draggedPanel) {
+                    draggedPanel.style.opacity = '0.5';
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', draggedPanel.id);
+                    const ghost = draggedPanel.cloneNode(true);
+                    ghost.style.position = 'absolute';
+                    ghost.style.top = '-9999px';
+                    ghost.style.opacity = '0.8';
+                    ghost.style.width = draggedPanel.offsetWidth + 'px';
+                    document.body.appendChild(ghost);
+                    e.dataTransfer.setDragImage(ghost, 0, 0);
+                    setTimeout(() => document.body.removeChild(ghost), 0);
+                }
+            }
+
+            function handleDragEnd(e) {
+                if (draggedPanel) draggedPanel.style.opacity = '1';
+                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                draggedPanel = null;
+                setTimeout(() => { editorMain.refresh(); editorNotes.refresh(); }, 100);
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const targetPanel = e.target.closest('.draggable-panel');
+                if (targetPanel && targetPanel !== draggedPanel && !targetPanel.classList.contains('hidden')) {
+                    if (dragOverPanel !== targetPanel) {
+                        if (dragOverPanel) dragOverPanel.classList.remove('drag-over');
+                        dragOverPanel = targetPanel;
+                        targetPanel.classList.add('drag-over');
+                    }
+                }
+            }
+
+            function handleDragLeave(e) {
+                const targetPanel = e.target.closest('.draggable-panel');
+                if (targetPanel && targetPanel === dragOverPanel) {
+                    targetPanel.classList.remove('drag-over');
+                    dragOverPanel = null;
+                }
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                const targetPanel = e.target.closest('.draggable-panel');
+                if (targetPanel && targetPanel !== draggedPanel && draggedPanel) {
+                    swapPanels(draggedPanel, targetPanel);
+                }
+                if (dragOverPanel) { dragOverPanel.classList.remove('drag-over'); dragOverPanel = null; }
+            }
+
+            function handleDragOverContainer(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (draggedPanel && draggedPanel.id === 'panel1') {
+                    rightContainer.classList.add('drag-over');
+                }
+            }
+
+            function handleDragLeaveContainer(e) {
+                rightContainer.classList.remove('drag-over');
+            }
+
+            function handleDropContainer(e) {
+                e.preventDefault();
+                rightContainer.classList.remove('drag-over');
+                if (draggedPanel && draggedPanel.id === 'panel1') {
+                    movePanelToContainer(draggedPanel, rightContainer);
+                }
+            }
+        }
+
+        function swapPanels(panel1, panel2) {
+            const parent1 = panel1.parentElement;
+            const parent2 = panel2.parentElement;
+
+            if (parent1 === parent2) {
+                const children = Array.from(parent1.children);
+                const index1 = children.indexOf(panel1);
+                const index2 = children.indexOf(panel2);
+                if (index1 < index2) {
+                    parent1.insertBefore(panel2, panel1);
+                    parent1.insertBefore(panel1, panel2.nextSibling);
+                } else {
+                    parent1.insertBefore(panel1, panel2);
+                    parent1.insertBefore(panel2, panel1.nextSibling);
+                }
+            } else {
+                const nextSibling1 = panel1.nextSibling;
+                const nextSibling2 = panel2.nextSibling;
+                if (nextSibling1) parent1.insertBefore(panel2, nextSibling1);
+                else parent1.appendChild(panel2);
+                if (nextSibling2) parent2.insertBefore(panel1, nextSibling2);
+                else parent2.appendChild(panel1);
+            }
+
+            updateResizeHandles();
+            setTimeout(() => { editorMain.refresh(); editorNotes.refresh(); }, 100);
+        }
+
+        function movePanelToContainer(panel, container) {
+            panel.remove();
+            if (container.firstChild) container.insertBefore(panel, container.firstChild);
+            else container.appendChild(panel);
+            panel.style.flex = '1';
+            updateResizeHandles();
+            setTimeout(() => { editorMain.refresh(); editorNotes.refresh(); }, 100);
+        }
+
+        function updateResizeHandles() {
+            const rightContainer = document.getElementById('rightPanelContainer');
+            const panelsInRight = rightContainer.querySelectorAll('.draggable-panel:not(.hidden)');
+
+            const existingHandles = rightContainer.querySelectorAll('.resize-handle-horizontal');
+            existingHandles.forEach(handle => handle.remove());
+
+            if (panelsInRight.length > 1) {
+                for (let i = 0; i < panelsInRight.length - 1; i++) {
+                    const handle = document.createElement('div');
+                    handle.className = 'resize-handle-horizontal';
+                    handle.onmousedown = function(e) {
+                        initResizeHorizontalDynamic(e, panelsInRight[i].id, panelsInRight[i + 1].id);
+                    };
+                    panelsInRight[i].after(handle);
+                }
+            }
+            updatePanelReferences();
+        }
+
+        function updatePanelReferences() {
+            window.panel1 = document.getElementById('panel1');
+            window.panel3 = document.getElementById('panel3');
+            window.panel4 = document.getElementById('panel4');
+            window.rightContainer = document.getElementById('rightPanelContainer');
+        }
+
+        function initResizeHorizontalDynamic(e, topId, bottomId) {
+            initResizeHorizontal(e, topId, bottomId);
+        }
+
+        // ============================================
+        // INPUT DE USUARIO (inline en la consola)
+        // ============================================
+        function requestUserInput(prompt) {
+            return new Promise((resolve) => {
+                const outputDiv = document.getElementById('outputContent');
+                const inputContainer = document.createElement('div');
+                inputContainer.className = 'input-container';
+
+                const promptSpan = document.createElement('span');
+                promptSpan.className = 'input-prompt';
+                promptSpan.textContent = prompt || '> ';
+
+                const inputField = document.createElement('input');
+                inputField.type = 'text';
+                inputField.className = 'input-field';
+                inputField.autofocus = true;
+
+                const submitButton = document.createElement('button');
+                submitButton.className = 'input-submit';
+                submitButton.textContent = 'Enter';
+
+                inputContainer.appendChild(promptSpan);
+                inputContainer.appendChild(inputField);
+                inputContainer.appendChild(submitButton);
+                outputDiv.appendChild(inputContainer);
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+
+                function processInput() {
+                    const value = inputField.value;
+                    inputContainer.remove();
+                    const inputEcho = document.createElement('span');
+                    inputEcho.style.color = '#4ec9b0';
+                    inputEcho.textContent = prompt + value + '\n';
+                    outputDiv.appendChild(inputEcho);
+                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                    isWaitingForInput = false;
+                    resolve(value);
+                }
+
+                submitButton.addEventListener('click', processInput);
+                inputField.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') processInput();
+                });
+                isWaitingForInput = true;
+            });
+        }
+
+        // ============================================
+        // EDITORES
+        // ============================================
+        const editorMain = CodeMirror.fromTextArea(
+            document.getElementById('editor-main'),
+            {
+                lineNumbers: true,
+                mode: 'python-linebased',   // <-- modo por línea + estilo Ruby
+                theme: 'dracula',
+                lineWrapping: true,
+                indentUnit: 4,
+                tabSize: 4,
+                indentWithTabs: false,
+                autoCloseBrackets: false,
+                matchBrackets: true,
+                indentGuides: true,
+                foldGutter: true,
+                gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+                styleActiveLine: true,
+                value: `# Python Editor - ¡Aprende a programar!
+# Escribe tu código aquí y presiona Run para ejecutar.
+
+class Animal:
+    def __init__(self, nombre, edad):
+        self.nombre = nombre
+        self.edad = edad
+    
+    def hablar(self):
+        return f"{self.nombre} hace un sonido"
+    
+    def envejecer(self):
+        self.edad += 1
+        return self.edad
+
+# Uso
+mi_animal = Animal("Buddy", 3)
+print(mi_animal.hablar())
+print("Edad:", mi_animal.edad)
+
+# Lista de ejemplo
+numeros = [1, 2, 3, 4, 5]
+cuadrados = [n**2 for n in numeros]
+print("Cuadrados:", cuadrados)
+
+# Diccionario anidado
+datos = {
+    "animales": [
+        {"nombre": "Max", "tipo": "perro"},
+        {"nombre": "Luna", "tipo": "gato"}
+    ],
+    "edades": [3, 5, 2]
+}
+
+for animal in datos["animales"]:
+    print(f"{animal['nombre']} es un {animal['tipo']}")`
+            }
+        );
+
+        const editorNotes = CodeMirror.fromTextArea(
+            document.getElementById('editor-notes'),
+            {
+                lineNumbers: true,
+                mode: 'python-linebased',   // <-- mismo modo
+                theme: 'dracula',
+                lineWrapping: true,
+                indentUnit: 4,
+                tabSize: 4,
+                indentWithTabs: false,
+                autoCloseBrackets: false,
+                matchBrackets: true,
+                indentGuides: true,
+                foldGutter: true,
+                gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+                styleActiveLine: true,
+                value: `# Mis notas de Python
+# Aquí puedes guardar snippets, ideas o apuntes.
+
+tareas = [
+    {"título": "Aprender listas", "completado": False},
+    {"título": "Practicar funciones", "completado": True},
+    {"título": "Entender clases", "completado": False}
+]
+
+# Consejo: usa print() para depurar
+for t in tareas:
+    estado = "✓" if t["completado"] else "✗"
+    print(f"{estado} {t['título']}")
+
+# Función con múltiples niveles de indentación
+def procesar_datos(datos):
+    resultados = []
+    for item in datos:
+        if isinstance(item, dict):
+            for clave, valor in item.items():
+                if valor > 10:
+                    resultados.append(clave)
+    return resultados`
+            }
+        );
+
+        // ============================================
+        // EJECUCIÓN DE CÓDIGO PYTHON (Skulpt)
+        // ============================================
+        async function runCode() {
+            if (isWaitingForInput) return;
+
+            const code = editorMain.getValue().trim();
+            const outputDiv = document.getElementById('outputContent');
+
+            if (!code) {
+                outputDiv.textContent = '> Listo para ejecutar...';
+                return;
+            }
+
+            outputDiv.innerHTML = '> Ejecutando...\n';
+
+            const originalConsoleLog = console.log;
+            const originalConsoleError = console.error;
+            const originalConsoleWarn = console.warn;
+
+            console.log = function(...args) {
+                const text = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+                const span = document.createElement('span');
+                span.textContent = text + '\n';
+                outputDiv.appendChild(span);
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            };
+            console.error = function(...args) {
+                const text = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+                const span = document.createElement('span');
+                span.style.color = '#f44747';
+                span.textContent = '⛔ Error: ' + text + '\n';
+                outputDiv.appendChild(span);
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            };
+            console.warn = function(...args) {
+                const text = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+                const span = document.createElement('span');
+                span.style.color = '#cca700';
+                span.textContent = '⚠️ Warning: ' + text + '\n';
+                outputDiv.appendChild(span);
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            };
+
+            function outf(text) {
+                const span = document.createElement('span');
+                span.textContent = text;
+                outputDiv.appendChild(span);
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            }
+
+            function builtinRead(x) {
+                if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined)
+                    throw "Archivo no encontrado: '" + x + "'";
+                return Sk.builtinFiles["files"][x];
+            }
+
+            const originalPrompt = window.prompt;
+            window.prompt = function() { return null; };
+
+            Sk.configure({
+                output: outf,
+                read: builtinRead,
+                __future__: Sk.python3,
+                inputfun: function(prompt) {
+                    return requestUserInput(prompt || '');
+                },
+                inputfunTakesPrompt: true
+            });
+
+            try {
+                await Sk.misceval.asyncToPromise(function() {
+                    return Sk.importMainWithBody("<stdin>", false, code, true);
+                });
+                console.log = originalConsoleLog;
+                console.error = originalConsoleError;
+                console.warn = originalConsoleWarn;
+                window.prompt = originalPrompt;
+            } catch (err) {
+                const span = document.createElement('span');
+                span.style.color = '#f44747';
+                span.textContent = '\n⛔ Error: ' + err.toString() + '\n';
+                outputDiv.appendChild(span);
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+                console.log = originalConsoleLog;
+                console.error = originalConsoleError;
+                console.warn = originalConsoleWarn;
+                window.prompt = originalPrompt;
+            }
+        }
+
+        // ============================================
+        // SWITCH AUTO-RUN
+        // ============================================
+        function toggleAutoRun() {
+            const switchElement = document.getElementById('autoRunSwitch');
+            autoRunEnabled = switchElement.checked;
+
+            if (autoRunEnabled) {
+                editorMain.on('change', function() {
+                    if (!isWaitingForInput) {
+                        clearTimeout(autoRunTimeout);
+                        autoRunTimeout = setTimeout(() => { runCode(); }, 1000);
+                    }
+                });
+                const outputDiv = document.getElementById('outputContent');
+                const span = document.createElement('span');
+                span.style.color = '#4ec9b0';
+                span.textContent = '> Auto-run activado. Escribe código para ejecutar automáticamente...\n';
+                outputDiv.appendChild(span);
+            } else {
+                editorMain.off('change');
+                clearTimeout(autoRunTimeout);
+                const outputDiv = document.getElementById('outputContent');
+                const span = document.createElement('span');
+                span.style.color = '#4ec9b0';
+                span.textContent = '> Auto-run desactivado. Usa Run para ejecutar manualmente...\n';
+                outputDiv.appendChild(span);
+            }
+        }
+
+        // Atajos
+        editorMain.setOption("extraKeys", {
+            "Ctrl-Enter": runCode,
+            "Tab": function(cm) {
+                if (cm.somethingSelected()) cm.indentSelection("add");
+                else cm.replaceSelection(cm.getOption("indentWithTabs") ? "\t" :
+                    Array(cm.getOption("indentUnit") + 1).join(" "), "end", "+input");
+            },
+            "Shift-Tab": function(cm) {
+                if (cm.somethingSelected()) cm.indentSelection("subtract");
+            }
+        });
+
+        editorNotes.setOption("extraKeys", {
+            "Tab": function(cm) {
+                if (cm.somethingSelected()) cm.indentSelection("add");
+                else cm.replaceSelection(cm.getOption("indentWithTabs") ? "\t" :
+                    Array(cm.getOption("indentUnit") + 1).join(" "), "end", "+input");
+            },
+            "Shift-Tab": function(cm) {
+                if (cm.somethingSelected()) cm.indentSelection("subtract");
+            }
+        });
+
+        // ============================================
+        // CONTROL DE FUENTES
+        // ============================================
+        function changeFontSize(panelId, delta) {
+            const panel = document.getElementById(panelId);
+            if (panelId === 'panel1') {
+                const cmElements = document.querySelectorAll('#panel1 .CodeMirror');
+                if (cmElements.length > 0) {
+                    const cm = cmElements[0];
+                    const currentSize = parseInt(window.getComputedStyle(cm).fontSize);
+                    const newSize = currentSize + delta;
+                    if (newSize >= 10 && newSize <= 30) {
+                        cm.style.fontSize = newSize + 'px';
+                        editorMain.refresh();
+                    }
+                }
+            } else if (panelId === 'panel3') {
+                const output = document.getElementById('outputContent');
+                const currentSize = parseInt(window.getComputedStyle(output).fontSize);
+                const newSize = currentSize + delta;
+                if (newSize >= 10 && newSize <= 30) output.style.fontSize = newSize + 'px';
+            } else if (panelId === 'panel4') {
+                const cmElements = document.querySelectorAll('#panel4 .CodeMirror');
+                if (cmElements.length > 0) {
+                    const cm = cmElements[0];
+                    const currentSize = parseInt(window.getComputedStyle(cm).fontSize);
+                    const newSize = currentSize + delta;
+                    if (newSize >= 10 && newSize <= 30) {
+                        cm.style.fontSize = newSize + 'px';
+                        editorNotes.refresh();
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // PANELES Y REDIMENSIONAMIENTO
+        // ============================================
+        let isResizing = false;
+        let currentResizeType = null;
+        let startX, startY;
+        let leftPanelWidth, rightPanelWidth;
+        let topPanelHeight, bottomPanelHeight;
+        const panel1 = document.getElementById('panel1');
+        const panel3 = document.getElementById('panel3');
+        const panel4 = document.getElementById('panel4');
+        const rightContainer = document.getElementById('rightPanelContainer');
+
+        function togglePanel(panelId) {
+            document.getElementById(panelId).classList.toggle('hidden');
+            updateHandles();
+            updateResizeHandles();
+            setTimeout(() => { editorMain.refresh(); editorNotes.refresh(); }, 10);
+        }
+
+        function updateHandles() {
+            const v = document.getElementById('handleVertical');
+            const panel1Hidden = panel1.classList.contains('hidden');
+            const rightPanelsVisible = rightContainer.querySelectorAll('.draggable-panel:not(.hidden)').length > 1;
+            v.style.display = panel1Hidden ? 'none' : 'block';
+            const horizontalHandles = rightContainer.querySelectorAll('.resize-handle-horizontal');
+            horizontalHandles.forEach(handle => {
+                handle.style.display = rightPanelsVisible ? 'block' : 'none';
+            });
+        }
+
+        function initResizeVertical(e) {
+            isResizing = true;
+            currentResizeType = 'vertical';
+            startX = e.clientX;
+            leftPanelWidth = panel1.offsetWidth;
+            rightPanelWidth = rightContainer.offsetWidth;
+            document.addEventListener('mousemove', resizeVertical);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+        }
+
+        function initResizeHorizontal(e, topId, bottomId) {
+            isResizing = true;
+            currentResizeType = 'horizontal';
+            startY = e.clientY;
+            topPanelHeight = document.getElementById(topId).offsetHeight;
+            bottomPanelHeight = document.getElementById(bottomId).offsetHeight;
+            document.addEventListener('mousemove', resizeHorizontal);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+        }
+
+        function resizeVertical(e) {
+            if (!isResizing || currentResizeType !== 'vertical') return;
+            const dx = e.clientX - startX;
+            const containerWidth = document.getElementById('app').offsetWidth;
+            let newLeftWidth = ((leftPanelWidth + dx) / containerWidth) * 100;
+            if (newLeftWidth > 20 && newLeftWidth < 80) {
+                panel1.style.flex = newLeftWidth;
+                rightContainer.style.flex = 100 - newLeftWidth;
+                editorMain.refresh();
+                editorNotes.refresh();
+            }
+        }
+
+        function resizeHorizontal(e) {
+            if (!isResizing || currentResizeType !== 'horizontal') return;
+            const dy = e.clientY - startY;
+            const containerHeight = rightContainer.offsetHeight;
+            let newTopHeight = ((topPanelHeight + dy) / containerHeight) * 100;
+            if (newTopHeight > 20 && newTopHeight < 80) {
+                const topPanel = document.getElementById('panel3');
+                const bottomPanel = document.getElementById('panel4');
+                if (topPanel && bottomPanel && !topPanel.classList.contains('hidden') && !bottomPanel.classList.contains('hidden')) {
+                    topPanel.style.flex = newTopHeight;
+                    bottomPanel.style.flex = 100 - newTopHeight;
+                    editorMain.refresh();
+                    editorNotes.refresh();
+                }
+            }
+        }
+
+        function stopResize() {
+            isResizing = false;
+            currentResizeType = null;
+            document.removeEventListener('mousemove', resizeVertical);
+            document.removeEventListener('mousemove', resizeHorizontal);
+            document.removeEventListener('mouseup', stopResize);
+            editorMain.refresh();
+            editorNotes.refresh();
+        }
+
+        window.addEventListener('resize', () => {
+            editorMain.refresh();
+            editorNotes.refresh();
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initDragAndDrop();
+            updateResizeHandles();
+        });
+
+        window.togglePanel = togglePanel;
+        window.initResizeVertical = initResizeVertical;
+        window.initResizeHorizontal = initResizeHorizontal;
+        window.changeFontSize = changeFontSize;
+        window.runCode = runCode;
+        window.toggleAutoRun = toggleAutoRun;
+        window.initResizeHorizontalDynamic = initResizeHorizontalDynamic;
+    </script>
+</body>
+</html>
