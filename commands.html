@@ -5,19 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Python Editor - Aprende a Programar</title>
 
-    <!-- CodeMirror CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
-    <!-- Tema oscuro Dracula -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
-    <!-- Addon CSS para indent guides -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.css">
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --syntax-green: #50fa7b;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -25,6 +22,8 @@
             color: #d4d4d4;
             height: 100vh;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         .toolbar {
@@ -34,14 +33,13 @@
             gap: 16px;
             border-bottom: 1px solid #3c3c3c;
             align-items: center;
-            height: 48px;
+            min-height: 48px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            row-gap: 8px;
         }
 
-        .toolbar-group {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
+        .toolbar-group { display: flex; gap: 8px; align-items: center; }
 
         .toolbar-button {
             background: #3c3c3c;
@@ -53,24 +51,18 @@
             font-size: 13px;
             transition: 0.2s;
         }
-
-        .toolbar-button:hover {
-            background: #4a4a4a;
-        }
-
-        .toolbar-button.run {
-            background: #0e639c;
-            color: white;
-        }
-        .toolbar-button.run:hover {
-            background: #1177bb;
-        }
+        .toolbar-button:hover { background: #4a4a4a; }
+        .toolbar-button.run { background: #0e639c; color: white; }
+        .toolbar-button.run:hover { background: #1177bb; }
 
         .container {
             display: flex;
-            height: calc(100vh - 48px);
+            flex-direction: row;
+            flex: 1;
+            min-height: 0;
             overflow: hidden;
         }
+        .container.orientation-vertical { flex-direction: column; }
 
         .panel {
             display: flex;
@@ -79,11 +71,16 @@
             border-right: 1px solid #3c3c3c;
             overflow: hidden;
             min-width: 200px;
+            min-height: 100px;
             height: 100%;
         }
+        .panel.hidden { display: none; }
 
-        .panel.hidden {
-            display: none;
+        .container.orientation-vertical > .panel,
+        .container.orientation-vertical > .right-panels-container {
+            height: auto;
+            width: 100%;
+            min-width: 0;
         }
 
         .panel-header {
@@ -98,15 +95,7 @@
             cursor: grab;
             user-select: none;
         }
-
-        .panel-header:active {
-            cursor: grabbing;
-        }
-
-        .panel-header.dragging {
-            opacity: 0.5;
-            cursor: grabbing;
-        }
+        .panel-header:active { cursor: grabbing; }
 
         .panel-title {
             font-size: 12px;
@@ -115,13 +104,7 @@
             text-transform: uppercase;
         }
 
-        .panel-controls {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            pointer-events: auto;
-        }
-
+        .panel-controls { display: flex; gap: 6px; align-items: center; pointer-events: auto; }
         .panel-controls button {
             background: #3c3c3c;
             border: none;
@@ -135,35 +118,15 @@
             justify-content: center;
             font-size: 14px;
             transition: 0.2s;
-            pointer-events: auto;
         }
+        .panel-controls button:hover { background: #4a4a4a; }
+        .panel-controls button.close-btn:hover { background: #c42b1c; }
 
-        .panel-controls button:hover {
-            background: #4a4a4a;
-        }
+        .font-size-controls { display: flex; gap: 2px; }
+        .font-size-controls button { width: 22px; height: 22px; font-size: 12px; }
 
-        .panel-controls button.close-btn:hover {
-            background: #c42b1c;
-        }
+        .code-container { flex: 1; overflow: hidden; height: calc(100% - 40px); }
 
-        .font-size-controls {
-            display: flex;
-            gap: 2px;
-        }
-
-        .font-size-controls button {
-            width: 22px;
-            height: 22px;
-            font-size: 12px;
-        }
-
-        .code-container {
-            flex: 1;
-            overflow: hidden;
-            height: calc(100% - 40px);
-        }
-
-        /* Estilos para CodeMirror */
         .CodeMirror {
             height: 100%;
             font-family: 'Consolas', 'Fira Code', monospace;
@@ -171,60 +134,25 @@
             line-height: 1.6;
         }
 
-        /* ============================================================
-           TEMA PERSONALIZADO (estilo Ruby)
-           - Amarillo (strings) → Azul
-           - Blanco (texto base, punctuation, meta) → Morado
-           ============================================================ */
-        .cm-s-dracula.CodeMirror {
-            color: #c792ea !important;   /* morado: texto base */
-        }
+        /* ===== TEMA RUBY ===== */
+        .cm-s-dracula.CodeMirror { color: #c792ea !important; }
         .cm-s-dracula .cm-string,
-        .cm-s-dracula .cm-string-2 {
-            color: #82aaff !important;   /* azul: strings (antes amarillo) */
-        }
+        .cm-s-dracula .cm-string-2 { color: #82aaff !important; }
         .cm-s-dracula .cm-variable-2,
         .cm-s-dracula .cm-meta,
-        .cm-s-dracula .cm-bracket {
-            color: #c792ea !important;   /* morado: antes blanco */
-        }
+        .cm-s-dracula .cm-bracket { color: #c792ea !important; }
+        .cm-s-dracula .cm-builtin,
+        .cm-s-dracula .cm-def,
+        .cm-s-dracula .cm-attribute,
+        .cm-s-dracula .cm-qualifier { color: var(--syntax-green) !important; }
 
-        /* Guías de indentación mejoradas */
-        .CodeMirror-indent-guide {
-            position: relative;
-            border-right: 1px solid rgba(255, 255, 255, 0.12);
-        }
+        .CodeMirror-activeline-background { background: rgba(255, 255, 255, 0.03) !important; }
 
-        .cm-tab {
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1" height="14" viewBox="0 0 1 14"><line x1="0.5" y1="0" x2="0.5" y2="14" stroke="rgba(255,255,255,0.08)" stroke-width="1"/></svg>') no-repeat;
-        }
-
-        .CodeMirror-activeline-background {
-            background: rgba(255, 255, 255, 0.03) !important;
-        }
-
-        .CodeMirror-activeline .CodeMirror-indent-guide {
-            border-right: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .CodeMirror-foldgutter {
-            width: 16px;
-        }
-
+        .CodeMirror-foldgutter { width: 16px; }
         .CodeMirror-foldgutter-open,
-        .CodeMirror-foldgutter-folded {
-            cursor: pointer;
-            color: #666;
-            font-size: 12px;
-        }
-
-        .CodeMirror-foldgutter-open:after {
-            content: "▾";
-        }
-
-        .CodeMirror-foldgutter-folded:after {
-            content: "▸";
-        }
+        .CodeMirror-foldgutter-folded { cursor: pointer; color: #666; font-size: 12px; }
+        .CodeMirror-foldgutter-open:after { content: "▾"; }
+        .CodeMirror-foldgutter-folded:after { content: "▸"; }
 
         .output-content {
             padding: 16px;
@@ -249,13 +177,7 @@
             border-radius: 4px;
             padding: 4px 8px;
         }
-
-        .input-prompt {
-            color: #0e639c;
-            margin-right: 8px;
-            font-weight: bold;
-        }
-
+        .input-prompt { color: #0e639c; margin-right: 8px; font-weight: bold; }
         .input-field {
             flex: 1;
             background: transparent;
@@ -265,7 +187,6 @@
             font-size: 14px;
             outline: none;
         }
-
         .input-submit {
             background: #0e639c;
             color: white;
@@ -276,44 +197,56 @@
             font-size: 12px;
             margin-left: 8px;
         }
-
-        .input-submit:hover {
-            background: #1177bb;
-        }
+        .input-submit:hover { background: #1177bb; }
 
         .resize-handle-vertical {
             width: 4px;
             background: #3c3c3c;
             cursor: col-resize;
             height: 100%;
+            flex-shrink: 0;
         }
-        .resize-handle-vertical:hover {
-            background: #0e639c;
+        .resize-handle-vertical:hover { background: #0e639c; }
+
+        .container.orientation-vertical #handleVertical {
+            width: 100%;
+            height: 4px;
+            cursor: row-resize;
         }
 
-        .resize-handle-horizontal {
-            height: 4px;
-            background: #3c3c3c;
-            cursor: row-resize;
+        .right-panels-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+            min-width: 0;
+        }
+        .right-panels-container.orientation-horizontal { flex-direction: row; }
+        .right-panels-container.orientation-horizontal > .panel {
+            min-width: 0;
+            min-height: 0;
+            height: auto;
             width: 100%;
         }
-        .resize-handle-horizontal:hover {
-            background: #0e639c;
+        .right-panels-container:not(.orientation-horizontal) > .panel {
+            min-width: 0;
+            min-height: 0;
         }
 
-        .drop-zone {
-            border: 2px dashed #0e639c !important;
-            background: rgba(14, 99, 156, 0.1) !important;
+        .resize-handle-interior {
+            background: #3c3c3c;
+            flex-shrink: 0;
         }
-
-        .drop-zone * {
-            pointer-events: none;
+        .resize-handle-interior:hover { background: #0e639c; }
+        .right-panels-container:not(.orientation-horizontal) > .resize-handle-interior {
+            height: 4px;
+            width: 100%;
+            cursor: row-resize;
         }
-
-        .panel-placeholder {
-            border: 2px dashed #3c3c3c;
-            background: rgba(255, 255, 255, 0.05);
-            min-height: 100px;
+        .right-panels-container.orientation-horizontal > .resize-handle-interior {
+            width: 4px;
+            height: 100%;
+            cursor: col-resize;
         }
 
         .switch-container {
@@ -323,90 +256,36 @@
             margin-left: 8px;
         }
 
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 36px;
-            height: 18px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
+        .switch { position: relative; display: inline-block; width: 36px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
         .slider {
             position: absolute;
             cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background-color: #3c3c3c;
             transition: 0.3s;
             border-radius: 18px;
         }
-
         .slider:before {
             position: absolute;
             content: "";
-            height: 14px;
-            width: 14px;
-            left: 2px;
-            bottom: 2px;
+            height: 14px; width: 14px;
+            left: 2px; bottom: 2px;
             background-color: #d4d4d4;
             transition: 0.3s;
             border-radius: 50%;
         }
+        input:checked + .slider { background-color: #0e639c; }
+        input:checked + .slider:before { transform: translateX(18px); }
+        .switch-label { font-size: 12px; color: #ccc; }
 
-        input:checked + .slider {
-            background-color: #0e639c;
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(18px);
-        }
-
-        .switch-label {
-            font-size: 12px;
-            color: #ccc;
-        }
-
-        .draggable-panel {
-            transition: transform 0.2s ease;
-            position: relative;
-        }
-
+        .draggable-panel { position: relative; }
         .draggable-panel.drag-over {
             border: 2px solid #0e639c;
             background: rgba(14, 99, 156, 0.1);
         }
 
-        .right-panels-container {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        .CodeMirror-gutter {
-            border-right: 1px solid #3c3c3c;
-        }
-
-        .cm-indent {
-            display: inline-block;
-            position: relative;
-        }
-
-        .cm-indent::before {
-            content: '';
-            position: absolute;
-            left: 2px;
-            top: 0;
-            bottom: 0;
-            border-left: 1px solid rgba(255, 255, 255, 0.08);
-        }
+        .CodeMirror-gutter { border-right: 1px solid #3c3c3c; }
     </style>
 </head>
 <body>
@@ -425,6 +304,13 @@
                 <span class="slider"></span>
             </label>
             <span class="switch-label">Auto-run</span>
+        </div>
+        <!-- Único toggle de orientación: todas las ventanas horizontales -->
+        <div class="switch-container">
+            <button class="toolbar-button" id="allHorizontalBtn" onclick="toggleAllHorizontal()"
+                    title="Poner todas las ventanas en horizontal (o volver a la disposición original)">
+                ⇅ Todas vertical
+            </button>
         </div>
     </div>
 
@@ -466,7 +352,7 @@
                 </div>
             </div>
 
-            <div class="resize-handle-horizontal" id="handleHorizontal" onmousedown="initResizeHorizontal(event, 'panel3', 'panel4')"></div>
+            <div class="resize-handle-interior" id="handleInterior"></div>
 
             <div class="panel draggable-panel" id="panel4" style="flex: 1;" data-panel-id="panel4">
                 <div class="panel-header" draggable="true" data-panel-id="panel4">
@@ -486,7 +372,6 @@
         </div>
     </div>
 
-    <!-- CodeMirror JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
@@ -495,14 +380,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/foldgutter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/fold/indent-fold.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
-
-    <!-- Skulpt (intérprete de Python en JS) -->
     <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.min.js"></script>
 
     <script>
         // ============================================
-        // VARIABLES GLOBALES
+        // ESTADO
         // ============================================
         let autoRunEnabled = false;
         let autoRunTimeout = null;
@@ -510,22 +393,20 @@
         let draggedPanel = null;
         let dragOverPanel = null;
 
+        // Estado del único toggle: todas las ventanas en columna o no
+        let allHorizontal = false; // false = layout original (editor izq, consola/notes apiladas der)
+                                   // true  = todas apiladas en columna
+
         // ============================================================
-        // MODO PYTHON "POR LÍNEA"
-        // ------------------------------------------------------------
-        // Cada línea se tokeniza de forma independiente. Si dejas una
-        // comilla, paréntesis o triple-comilla abierta, la línea
-        // siguiente empieza sin estado residual.
+        // MODO PYTHON POR LÍNEA
         // ============================================================
-        CodeMirror.defineMode("python-linebased", function(config) {
+        CodeMirror.defineMode("python-linebased", function() {
             var keywords = /^(?:False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)$/;
             var builtins = /^(?:print|len|range|str|int|float|bool|list|dict|tuple|set|type|isinstance|super|open|input|abs|sum|min|max|sorted|enumerate|zip|map|filter|self|reversed|repr|hash|id|dir|vars|format|iter|next|chr|ord|hex|bin|oct|round|pow|divmod|all|any|object|Exception|ValueError|TypeError|KeyError|IndexError|ZeroDivisionError|AttributeError)$/;
 
             function readString(stream) {
                 var quote = stream.peek();
                 if (quote !== '"' && quote !== "'") return null;
-
-                // Triple comilla: se consume hasta cerrar o hasta EOL (si no cierra, NO continúa)
                 if (stream.match(quote + quote + quote, false)) {
                     stream.next(); stream.next(); stream.next();
                     while (!stream.eol()) {
@@ -550,23 +431,11 @@
 
             return {
                 startState: function() { return {}; },
-                token: function(stream, state) {
+                token: function(stream) {
                     if (stream.eatSpace()) return null;
-
                     var ch = stream.peek();
-
-                    // Comentarios (hasta fin de línea, sin estado persistente)
-                    if (ch === '#') {
-                        stream.skipToEnd();
-                        return "comment";
-                    }
-
-                    // Strings (nunca atraviesan líneas)
-                    if (ch === '"' || ch === "'") {
-                        return readString(stream);
-                    }
-
-                    // Prefijo de string: f, r, b, u (p.ej. f"hola")
+                    if (ch === '#') { stream.skipToEnd(); return "comment"; }
+                    if (ch === '"' || ch === "'") return readString(stream);
                     if (/[a-zA-Z_]/.test(ch)) {
                         var nextChar = stream.string.charAt(stream.pos + 1);
                         if (nextChar === '"' || nextChar === "'") {
@@ -577,14 +446,10 @@
                             }
                         }
                     }
-
-                    // Números
                     if (/\d/.test(ch) || (ch === '.' && /\d/.test(stream.string.charAt(stream.pos + 1)))) {
                         stream.match(/^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[jJ]?/);
                         return "number";
                     }
-
-                    // Identificadores / palabras reservadas
                     if (/[a-zA-Z_]/.test(ch)) {
                         stream.match(/^[a-zA-Z_]\w*/);
                         var word = stream.current();
@@ -592,20 +457,8 @@
                         if (builtins.test(word)) return "builtin";
                         return "variable";
                     }
-
-                    // Operadores
-                    if (/[+\-*\/%=<>!&|^~]/.test(ch)) {
-                        stream.next();
-                        return "operator";
-                    }
-
-                    // Paréntesis / corchetes / llaves (bracket para matchBrackets)
-                    if (/[()\[\]{}]/.test(ch)) {
-                        stream.next();
-                        return "bracket";
-                    }
-
-                    // Resto de puntuación: usa el color base (morado)
+                    if (/[+\-*\/%=<>!&|^~]/.test(ch)) { stream.next(); return "operator"; }
+                    if (/[()\[\]{}]/.test(ch)) { stream.next(); return "bracket"; }
                     stream.next();
                     return null;
                 },
@@ -620,25 +473,57 @@
         });
 
         // ============================================
-        // SISTEMA DE DRAG & DROP PARA INTERCAMBIAR PANELES
+        // TOGGLE ÚNICO: TODAS LAS VENTANAS EN COLUMNA
+        // ============================================
+        function toggleAllHorizontal() {
+            allHorizontal = !allHorizontal;
+
+            const appContainer = document.getElementById('app');
+            const rightContainer = document.getElementById('rightPanelContainer');
+            const btn = document.getElementById('allHorizontalBtn');
+            const panel1 = document.getElementById('panel1');
+
+            if (allHorizontal) {
+                // Todas las ventanas apiladas en columna
+                appContainer.classList.add('orientation-vertical');
+                rightContainer.classList.add('orientation-horizontal');
+                btn.textContent = '⇄ Todas horizontal';
+                btn.title = 'Volver a la disposición original (editor izquierda)';
+            } else {
+                // Disposición original: editor izquierda, consola/notas apiladas derecha
+                appContainer.classList.remove('orientation-vertical');
+                rightContainer.classList.remove('orientation-horizontal');
+                btn.textContent = '⇅ Todas vertical';
+                btn.title = 'Poner todas las ventanas en horizontal';
+            }
+
+            panel1.style.flex = '1';
+            rightContainer.style.flex = '1';
+            rightContainer.querySelectorAll('.draggable-panel:not(.hidden)').forEach(function(p) {
+                p.style.flex = '1';
+            });
+
+            setTimeout(function() { editorMain.refresh(); editorNotes.refresh(); }, 50);
+            wireInteriorHandle();
+        }
+
+        // ============================================
+        // DRAG & DROP
         // ============================================
         function initDragAndDrop() {
             const panelHeaders = document.querySelectorAll('.panel-header[draggable="true"]');
             const panels = document.querySelectorAll('.draggable-panel');
             const rightContainer = document.getElementById('rightPanelContainer');
-            const appContainer = document.getElementById('app');
 
-            panelHeaders.forEach(header => {
-                header.addEventListener('dragstart', handleDragStart);
-                header.addEventListener('dragend', handleDragEnd);
+            panelHeaders.forEach(function(h) {
+                h.addEventListener('dragstart', handleDragStart);
+                h.addEventListener('dragend', handleDragEnd);
             });
-
-            panels.forEach(panel => {
-                panel.addEventListener('dragover', handleDragOver);
-                panel.addEventListener('dragleave', handleDragLeave);
-                panel.addEventListener('drop', handleDrop);
+            panels.forEach(function(p) {
+                p.addEventListener('dragover', handleDragOver);
+                p.addEventListener('dragleave', handleDragLeave);
+                p.addEventListener('drop', handleDrop);
             });
-
             rightContainer.addEventListener('dragover', handleDragOverContainer);
             rightContainer.addEventListener('dragleave', handleDragLeaveContainer);
             rightContainer.addEventListener('drop', handleDropContainer);
@@ -649,148 +534,75 @@
                     draggedPanel.style.opacity = '0.5';
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData('text/plain', draggedPanel.id);
-                    const ghost = draggedPanel.cloneNode(true);
-                    ghost.style.position = 'absolute';
-                    ghost.style.top = '-9999px';
-                    ghost.style.opacity = '0.8';
-                    ghost.style.width = draggedPanel.offsetWidth + 'px';
-                    document.body.appendChild(ghost);
-                    e.dataTransfer.setDragImage(ghost, 0, 0);
-                    setTimeout(() => document.body.removeChild(ghost), 0);
                 }
             }
-
-            function handleDragEnd(e) {
+            function handleDragEnd() {
                 if (draggedPanel) draggedPanel.style.opacity = '1';
-                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                document.querySelectorAll('.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
                 draggedPanel = null;
-                setTimeout(() => { editorMain.refresh(); editorNotes.refresh(); }, 100);
+                setTimeout(function() { editorMain.refresh(); editorNotes.refresh(); }, 100);
             }
-
             function handleDragOver(e) {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
-                const targetPanel = e.target.closest('.draggable-panel');
-                if (targetPanel && targetPanel !== draggedPanel && !targetPanel.classList.contains('hidden')) {
-                    if (dragOverPanel !== targetPanel) {
+                const t = e.target.closest('.draggable-panel');
+                if (t && t !== draggedPanel && !t.classList.contains('hidden')) {
+                    if (dragOverPanel !== t) {
                         if (dragOverPanel) dragOverPanel.classList.remove('drag-over');
-                        dragOverPanel = targetPanel;
-                        targetPanel.classList.add('drag-over');
+                        dragOverPanel = t;
+                        t.classList.add('drag-over');
                     }
                 }
             }
-
             function handleDragLeave(e) {
-                const targetPanel = e.target.closest('.draggable-panel');
-                if (targetPanel && targetPanel === dragOverPanel) {
-                    targetPanel.classList.remove('drag-over');
-                    dragOverPanel = null;
-                }
+                const t = e.target.closest('.draggable-panel');
+                if (t && t === dragOverPanel) { t.classList.remove('drag-over'); dragOverPanel = null; }
             }
-
             function handleDrop(e) {
                 e.preventDefault();
-                const targetPanel = e.target.closest('.draggable-panel');
-                if (targetPanel && targetPanel !== draggedPanel && draggedPanel) {
-                    swapPanels(draggedPanel, targetPanel);
-                }
+                const t = e.target.closest('.draggable-panel');
+                if (t && t !== draggedPanel && draggedPanel) swapPanels(draggedPanel, t);
                 if (dragOverPanel) { dragOverPanel.classList.remove('drag-over'); dragOverPanel = null; }
             }
-
             function handleDragOverContainer(e) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                if (draggedPanel && draggedPanel.id === 'panel1') {
-                    rightContainer.classList.add('drag-over');
-                }
+                e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+                if (draggedPanel && draggedPanel.id === 'panel1') rightContainer.classList.add('drag-over');
             }
-
-            function handleDragLeaveContainer(e) {
-                rightContainer.classList.remove('drag-over');
-            }
-
+            function handleDragLeaveContainer() { rightContainer.classList.remove('drag-over'); }
             function handleDropContainer(e) {
-                e.preventDefault();
-                rightContainer.classList.remove('drag-over');
-                if (draggedPanel && draggedPanel.id === 'panel1') {
-                    movePanelToContainer(draggedPanel, rightContainer);
-                }
+                e.preventDefault(); rightContainer.classList.remove('drag-over');
+                if (draggedPanel && draggedPanel.id === 'panel1') movePanelToContainer(draggedPanel, rightContainer);
             }
         }
 
-        function swapPanels(panel1, panel2) {
-            const parent1 = panel1.parentElement;
-            const parent2 = panel2.parentElement;
-
+        function swapPanels(p1, p2) {
+            const parent1 = p1.parentElement, parent2 = p2.parentElement;
             if (parent1 === parent2) {
                 const children = Array.from(parent1.children);
-                const index1 = children.indexOf(panel1);
-                const index2 = children.indexOf(panel2);
-                if (index1 < index2) {
-                    parent1.insertBefore(panel2, panel1);
-                    parent1.insertBefore(panel1, panel2.nextSibling);
+                const i1 = children.indexOf(p1), i2 = children.indexOf(p2);
+                if (i1 < i2) {
+                    parent1.insertBefore(p2, p1);
+                    parent1.insertBefore(p1, p2.nextSibling);
                 } else {
-                    parent1.insertBefore(panel1, panel2);
-                    parent1.insertBefore(panel2, panel1.nextSibling);
+                    parent1.insertBefore(p1, p2);
+                    parent1.insertBefore(p2, p1.nextSibling);
                 }
-            } else {
-                const nextSibling1 = panel1.nextSibling;
-                const nextSibling2 = panel2.nextSibling;
-                if (nextSibling1) parent1.insertBefore(panel2, nextSibling1);
-                else parent1.appendChild(panel2);
-                if (nextSibling2) parent2.insertBefore(panel1, nextSibling2);
-                else parent2.appendChild(panel1);
             }
-
-            updateResizeHandles();
-            setTimeout(() => { editorMain.refresh(); editorNotes.refresh(); }, 100);
+            setTimeout(function() { editorMain.refresh(); editorNotes.refresh(); }, 100);
         }
 
         function movePanelToContainer(panel, container) {
             panel.remove();
-            if (container.firstChild) container.insertBefore(panel, container.firstChild);
-            else container.appendChild(panel);
+            container.insertBefore(panel, container.firstChild);
             panel.style.flex = '1';
-            updateResizeHandles();
-            setTimeout(() => { editorMain.refresh(); editorNotes.refresh(); }, 100);
-        }
-
-        function updateResizeHandles() {
-            const rightContainer = document.getElementById('rightPanelContainer');
-            const panelsInRight = rightContainer.querySelectorAll('.draggable-panel:not(.hidden)');
-
-            const existingHandles = rightContainer.querySelectorAll('.resize-handle-horizontal');
-            existingHandles.forEach(handle => handle.remove());
-
-            if (panelsInRight.length > 1) {
-                for (let i = 0; i < panelsInRight.length - 1; i++) {
-                    const handle = document.createElement('div');
-                    handle.className = 'resize-handle-horizontal';
-                    handle.onmousedown = function(e) {
-                        initResizeHorizontalDynamic(e, panelsInRight[i].id, panelsInRight[i + 1].id);
-                    };
-                    panelsInRight[i].after(handle);
-                }
-            }
-            updatePanelReferences();
-        }
-
-        function updatePanelReferences() {
-            window.panel1 = document.getElementById('panel1');
-            window.panel3 = document.getElementById('panel3');
-            window.panel4 = document.getElementById('panel4');
-            window.rightContainer = document.getElementById('rightPanelContainer');
-        }
-
-        function initResizeHorizontalDynamic(e, topId, bottomId) {
-            initResizeHorizontal(e, topId, bottomId);
+            setTimeout(function() { editorMain.refresh(); editorNotes.refresh(); }, 100);
         }
 
         // ============================================
-        // INPUT DE USUARIO (inline en la consola)
+        // INPUT
         // ============================================
         function requestUserInput(prompt) {
-            return new Promise((resolve) => {
+            return new Promise(function(resolve) {
                 const outputDiv = document.getElementById('outputContent');
                 const inputContainer = document.createElement('div');
                 inputContainer.className = 'input-container';
@@ -827,9 +639,7 @@
                 }
 
                 submitButton.addEventListener('click', processInput);
-                inputField.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') processInput();
-                });
+                inputField.addEventListener('keypress', function(e) { if (e.key === 'Enter') processInput(); });
                 isWaitingForInput = true;
             });
         }
@@ -837,23 +647,20 @@
         // ============================================
         // EDITORES
         // ============================================
-        const editorMain = CodeMirror.fromTextArea(
-            document.getElementById('editor-main'),
-            {
-                lineNumbers: true,
-                mode: 'python-linebased',   // <-- modo por línea + estilo Ruby
-                theme: 'dracula',
-                lineWrapping: true,
-                indentUnit: 4,
-                tabSize: 4,
-                indentWithTabs: false,
-                autoCloseBrackets: false,
-                matchBrackets: true,
-                indentGuides: true,
-                foldGutter: true,
-                gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
-                styleActiveLine: true,
-                value: `# Python Editor - ¡Aprende a programar!
+        const editorMain = CodeMirror.fromTextArea(document.getElementById('editor-main'), {
+            lineNumbers: true,
+            mode: 'python-linebased',
+            theme: 'dracula',
+            lineWrapping: true,
+            indentUnit: 4,
+            tabSize: 4,
+            indentWithTabs: false,
+            autoCloseBrackets: false,
+            matchBrackets: true,
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+            styleActiveLine: true,
+            value: `# Python Editor - ¡Aprende a programar!
 # Escribe tu código aquí y presiona Run para ejecutar.
 
 class Animal:
@@ -889,26 +696,22 @@ datos = {
 
 for animal in datos["animales"]:
     print(f"{animal['nombre']} es un {animal['tipo']}")`
-            }
-        );
+        });
 
-        const editorNotes = CodeMirror.fromTextArea(
-            document.getElementById('editor-notes'),
-            {
-                lineNumbers: true,
-                mode: 'python-linebased',   // <-- mismo modo
-                theme: 'dracula',
-                lineWrapping: true,
-                indentUnit: 4,
-                tabSize: 4,
-                indentWithTabs: false,
-                autoCloseBrackets: false,
-                matchBrackets: true,
-                indentGuides: true,
-                foldGutter: true,
-                gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
-                styleActiveLine: true,
-                value: `# Mis notas de Python
+        const editorNotes = CodeMirror.fromTextArea(document.getElementById('editor-notes'), {
+            lineNumbers: true,
+            mode: 'python-linebased',
+            theme: 'dracula',
+            lineWrapping: true,
+            indentUnit: 4,
+            tabSize: 4,
+            indentWithTabs: false,
+            autoCloseBrackets: false,
+            matchBrackets: true,
+            foldGutter: true,
+            gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+            styleActiveLine: true,
+            value: `# Mis notas de Python
 # Aquí puedes guardar snippets, ideas o apuntes.
 
 tareas = [
@@ -931,11 +734,10 @@ def procesar_datos(datos):
                 if valor > 10:
                     resultados.append(clave)
     return resultados`
-            }
-        );
+        });
 
         // ============================================
-        // EJECUCIÓN DE CÓDIGO PYTHON (Skulpt)
+        // EJECUCIÓN
         // ============================================
         async function runCode() {
             if (isWaitingForInput) return;
@@ -943,10 +745,7 @@ def procesar_datos(datos):
             const code = editorMain.getValue().trim();
             const outputDiv = document.getElementById('outputContent');
 
-            if (!code) {
-                outputDiv.textContent = '> Listo para ejecutar...';
-                return;
-            }
+            if (!code) { outputDiv.textContent = '> Listo para ejecutar...'; return; }
 
             outputDiv.innerHTML = '> Ejecutando...\n';
 
@@ -954,23 +753,26 @@ def procesar_datos(datos):
             const originalConsoleError = console.error;
             const originalConsoleWarn = console.warn;
 
-            console.log = function(...args) {
-                const text = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+            console.log = function() {
+                var args = Array.prototype.slice.call(arguments);
+                const text = args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ');
                 const span = document.createElement('span');
                 span.textContent = text + '\n';
                 outputDiv.appendChild(span);
                 outputDiv.scrollTop = outputDiv.scrollHeight;
             };
-            console.error = function(...args) {
-                const text = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+            console.error = function() {
+                var args = Array.prototype.slice.call(arguments);
+                const text = args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ');
                 const span = document.createElement('span');
                 span.style.color = '#f44747';
                 span.textContent = '⛔ Error: ' + text + '\n';
                 outputDiv.appendChild(span);
                 outputDiv.scrollTop = outputDiv.scrollHeight;
             };
-            console.warn = function(...args) {
-                const text = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+            console.warn = function() {
+                var args = Array.prototype.slice.call(arguments);
+                const text = args.map(function(a) { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }).join(' ');
                 const span = document.createElement('span');
                 span.style.color = '#cca700';
                 span.textContent = '⚠️ Warning: ' + text + '\n';
@@ -998,9 +800,7 @@ def procesar_datos(datos):
                 output: outf,
                 read: builtinRead,
                 __future__: Sk.python3,
-                inputfun: function(prompt) {
-                    return requestUserInput(prompt || '');
-                },
+                inputfun: function(prompt) { return requestUserInput(prompt || ''); },
                 inputfunTakesPrompt: true
             });
 
@@ -1026,36 +826,23 @@ def procesar_datos(datos):
         }
 
         // ============================================
-        // SWITCH AUTO-RUN
+        // AUTO-RUN
         // ============================================
         function toggleAutoRun() {
-            const switchElement = document.getElementById('autoRunSwitch');
-            autoRunEnabled = switchElement.checked;
-
+            autoRunEnabled = document.getElementById('autoRunSwitch').checked;
             if (autoRunEnabled) {
                 editorMain.on('change', function() {
                     if (!isWaitingForInput) {
                         clearTimeout(autoRunTimeout);
-                        autoRunTimeout = setTimeout(() => { runCode(); }, 1000);
+                        autoRunTimeout = setTimeout(function() { runCode(); }, 1000);
                     }
                 });
-                const outputDiv = document.getElementById('outputContent');
-                const span = document.createElement('span');
-                span.style.color = '#4ec9b0';
-                span.textContent = '> Auto-run activado. Escribe código para ejecutar automáticamente...\n';
-                outputDiv.appendChild(span);
             } else {
                 editorMain.off('change');
                 clearTimeout(autoRunTimeout);
-                const outputDiv = document.getElementById('outputContent');
-                const span = document.createElement('span');
-                span.style.color = '#4ec9b0';
-                span.textContent = '> Auto-run desactivado. Usa Run para ejecutar manualmente...\n';
-                outputDiv.appendChild(span);
             }
         }
 
-        // Atajos
         editorMain.setOption("extraKeys", {
             "Ctrl-Enter": runCode,
             "Tab": function(cm) {
@@ -1080,150 +867,178 @@ def procesar_datos(datos):
         });
 
         // ============================================
-        // CONTROL DE FUENTES
+        // FUENTES
         // ============================================
         function changeFontSize(panelId, delta) {
-            const panel = document.getElementById(panelId);
             if (panelId === 'panel1') {
-                const cmElements = document.querySelectorAll('#panel1 .CodeMirror');
-                if (cmElements.length > 0) {
-                    const cm = cmElements[0];
-                    const currentSize = parseInt(window.getComputedStyle(cm).fontSize);
-                    const newSize = currentSize + delta;
-                    if (newSize >= 10 && newSize <= 30) {
-                        cm.style.fontSize = newSize + 'px';
-                        editorMain.refresh();
-                    }
+                const cm = document.querySelector('#panel1 .CodeMirror');
+                if (cm) {
+                    const s = parseInt(window.getComputedStyle(cm).fontSize) + delta;
+                    if (s >= 10 && s <= 30) { cm.style.fontSize = s + 'px'; editorMain.refresh(); }
                 }
             } else if (panelId === 'panel3') {
-                const output = document.getElementById('outputContent');
-                const currentSize = parseInt(window.getComputedStyle(output).fontSize);
-                const newSize = currentSize + delta;
-                if (newSize >= 10 && newSize <= 30) output.style.fontSize = newSize + 'px';
+                const out = document.getElementById('outputContent');
+                const s = parseInt(window.getComputedStyle(out).fontSize) + delta;
+                if (s >= 10 && s <= 30) out.style.fontSize = s + 'px';
             } else if (panelId === 'panel4') {
-                const cmElements = document.querySelectorAll('#panel4 .CodeMirror');
-                if (cmElements.length > 0) {
-                    const cm = cmElements[0];
-                    const currentSize = parseInt(window.getComputedStyle(cm).fontSize);
-                    const newSize = currentSize + delta;
-                    if (newSize >= 10 && newSize <= 30) {
-                        cm.style.fontSize = newSize + 'px';
-                        editorNotes.refresh();
-                    }
+                const cm = document.querySelector('#panel4 .CodeMirror');
+                if (cm) {
+                    const s = parseInt(window.getComputedStyle(cm).fontSize) + delta;
+                    if (s >= 10 && s <= 30) { cm.style.fontSize = s + 'px'; editorNotes.refresh(); }
                 }
             }
         }
 
         // ============================================
-        // PANELES Y REDIMENSIONAMIENTO
+        // RESIZE
         // ============================================
         let isResizing = false;
         let currentResizeType = null;
         let startX, startY;
-        let leftPanelWidth, rightPanelWidth;
-        let topPanelHeight, bottomPanelHeight;
+        let startPanel1Dim, startRightDim;
+        let startTopHeight, startBottomHeight;
+        let startLeftInteriorWidth, startRightInteriorWidth;
+
         const panel1 = document.getElementById('panel1');
-        const panel3 = document.getElementById('panel3');
-        const panel4 = document.getElementById('panel4');
         const rightContainer = document.getElementById('rightPanelContainer');
 
         function togglePanel(panelId) {
             document.getElementById(panelId).classList.toggle('hidden');
-            updateHandles();
-            updateResizeHandles();
-            setTimeout(() => { editorMain.refresh(); editorNotes.refresh(); }, 10);
-        }
-
-        function updateHandles() {
-            const v = document.getElementById('handleVertical');
-            const panel1Hidden = panel1.classList.contains('hidden');
-            const rightPanelsVisible = rightContainer.querySelectorAll('.draggable-panel:not(.hidden)').length > 1;
-            v.style.display = panel1Hidden ? 'none' : 'block';
-            const horizontalHandles = rightContainer.querySelectorAll('.resize-handle-horizontal');
-            horizontalHandles.forEach(handle => {
-                handle.style.display = rightPanelsVisible ? 'block' : 'none';
-            });
+            const hv = document.getElementById('handleVertical');
+            hv.style.display = panel1.classList.contains('hidden') ? 'none' : 'block';
+            setTimeout(function() { editorMain.refresh(); editorNotes.refresh(); }, 10);
+            wireInteriorHandle();
         }
 
         function initResizeVertical(e) {
             isResizing = true;
-            currentResizeType = 'vertical';
+            currentResizeType = 'outer';
             startX = e.clientX;
-            leftPanelWidth = panel1.offsetWidth;
-            rightPanelWidth = rightContainer.offsetWidth;
-            document.addEventListener('mousemove', resizeVertical);
-            document.addEventListener('mouseup', stopResize);
-            e.preventDefault();
-        }
-
-        function initResizeHorizontal(e, topId, bottomId) {
-            isResizing = true;
-            currentResizeType = 'horizontal';
             startY = e.clientY;
-            topPanelHeight = document.getElementById(topId).offsetHeight;
-            bottomPanelHeight = document.getElementById(bottomId).offsetHeight;
-            document.addEventListener('mousemove', resizeHorizontal);
+            // Si el layout principal está en vertical, redimensionamos en Y; si no, en X
+            const isVerticalLayout = document.getElementById('app').classList.contains('orientation-vertical');
+            if (!isVerticalLayout) {
+                startPanel1Dim = panel1.offsetWidth;
+                startRightDim = rightContainer.offsetWidth;
+            } else {
+                startPanel1Dim = panel1.offsetHeight;
+                startRightDim = rightContainer.offsetHeight;
+            }
+            document.addEventListener('mousemove', resizeOuter);
             document.addEventListener('mouseup', stopResize);
             e.preventDefault();
         }
 
-        function resizeVertical(e) {
-            if (!isResizing || currentResizeType !== 'vertical') return;
-            const dx = e.clientX - startX;
-            const containerWidth = document.getElementById('app').offsetWidth;
-            let newLeftWidth = ((leftPanelWidth + dx) / containerWidth) * 100;
-            if (newLeftWidth > 20 && newLeftWidth < 80) {
-                panel1.style.flex = newLeftWidth;
-                rightContainer.style.flex = 100 - newLeftWidth;
+        function resizeOuter(e) {
+            if (!isResizing || currentResizeType !== 'outer') return;
+            const isVerticalLayout = document.getElementById('app').classList.contains('orientation-vertical');
+            const total = startPanel1Dim + startRightDim;
+            let newDim;
+            if (!isVerticalLayout) {
+                const dx = e.clientX - startX;
+                newDim = ((startPanel1Dim + dx) / total) * 100;
+            } else {
+                const dy = e.clientY - startY;
+                newDim = ((startPanel1Dim + dy) / total) * 100;
+            }
+            if (newDim > 20 && newDim < 80) {
+                panel1.style.flex = newDim;
+                rightContainer.style.flex = 100 - newDim;
                 editorMain.refresh();
                 editorNotes.refresh();
             }
         }
 
-        function resizeHorizontal(e) {
-            if (!isResizing || currentResizeType !== 'horizontal') return;
+        function initResizeInteriorVertical(e) {
+            isResizing = true;
+            currentResizeType = 'interior-vertical';
+            startY = e.clientY;
+            startTopHeight = document.getElementById('panel3').offsetHeight;
+            startBottomHeight = document.getElementById('panel4').offsetHeight;
+            document.addEventListener('mousemove', resizeInteriorVertical);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+        }
+
+        function resizeInteriorVertical(e) {
+            if (!isResizing || currentResizeType !== 'interior-vertical') return;
             const dy = e.clientY - startY;
-            const containerHeight = rightContainer.offsetHeight;
-            let newTopHeight = ((topPanelHeight + dy) / containerHeight) * 100;
-            if (newTopHeight > 20 && newTopHeight < 80) {
-                const topPanel = document.getElementById('panel3');
-                const bottomPanel = document.getElementById('panel4');
-                if (topPanel && bottomPanel && !topPanel.classList.contains('hidden') && !bottomPanel.classList.contains('hidden')) {
-                    topPanel.style.flex = newTopHeight;
-                    bottomPanel.style.flex = 100 - newTopHeight;
-                    editorMain.refresh();
-                    editorNotes.refresh();
-                }
+            const total = startTopHeight + startBottomHeight;
+            let newTop = ((startTopHeight + dy) / total) * 100;
+            if (newTop > 15 && newTop < 85) {
+                document.getElementById('panel3').style.flex = newTop;
+                document.getElementById('panel4').style.flex = 100 - newTop;
+                editorMain.refresh();
+                editorNotes.refresh();
+            }
+        }
+
+        function initResizeInteriorHorizontal(e) {
+            isResizing = true;
+            currentResizeType = 'interior-horizontal';
+            startX = e.clientX;
+            startLeftInteriorWidth = document.getElementById('panel3').offsetWidth;
+            startRightInteriorWidth = document.getElementById('panel4').offsetWidth;
+            document.addEventListener('mousemove', resizeInteriorHorizontal);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+        }
+
+        function resizeInteriorHorizontal(e) {
+            if (!isResizing || currentResizeType !== 'interior-horizontal') return;
+            const dx = e.clientX - startX;
+            const total = startLeftInteriorWidth + startRightInteriorWidth;
+            let newLeft = ((startLeftInteriorWidth + dx) / total) * 100;
+            if (newLeft > 15 && newLeft < 85) {
+                document.getElementById('panel3').style.flex = newLeft;
+                document.getElementById('panel4').style.flex = 100 - newLeft;
+                editorMain.refresh();
+                editorNotes.refresh();
             }
         }
 
         function stopResize() {
             isResizing = false;
             currentResizeType = null;
-            document.removeEventListener('mousemove', resizeVertical);
-            document.removeEventListener('mousemove', resizeHorizontal);
+            document.removeEventListener('mousemove', resizeOuter);
+            document.removeEventListener('mousemove', resizeInteriorVertical);
+            document.removeEventListener('mousemove', resizeInteriorHorizontal);
             document.removeEventListener('mouseup', stopResize);
             editorMain.refresh();
             editorNotes.refresh();
         }
 
-        window.addEventListener('resize', () => {
-            editorMain.refresh();
-            editorNotes.refresh();
-        });
+        // El handle interior es siempre vertical (row-resize) porque Console y Notes
+        // están SIEMPRE apiladas. Cuando todas están en horizontal, no hay handle interior.
+        function wireInteriorHandle() {
+            const handle = document.getElementById('handleInterior');
+            const newHandle = handle.cloneNode(false);
+            handle.parentNode.replaceChild(newHandle, handle);
+            newHandle.addEventListener('mousedown', function(e) {
+                initResizeInteriorVertical(e);
+            });
+            // El handle interior solo aplica cuando el layout NO es todo horizontal
+            const bothVisible =
+                !document.getElementById('panel3').classList.contains('hidden') &&
+                !document.getElementById('panel4').classList.contains('hidden') &&
+                !allHorizontal;
+            newHandle.style.display = bothVisible ? '' : 'none';
+        }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('resize', function() { editorMain.refresh(); editorNotes.refresh(); });
+
+        document.addEventListener('DOMContentLoaded', function() {
             initDragAndDrop();
-            updateResizeHandles();
+            wireInteriorHandle();
         });
 
-        window.togglePanel = togglePanel;
+        // Exponer al global
         window.initResizeVertical = initResizeVertical;
-        window.initResizeHorizontal = initResizeHorizontal;
         window.changeFontSize = changeFontSize;
         window.runCode = runCode;
         window.toggleAutoRun = toggleAutoRun;
-        window.initResizeHorizontalDynamic = initResizeHorizontalDynamic;
+        window.toggleAllHorizontal = toggleAllHorizontal;
+        window.togglePanel = togglePanel;
     </script>
 </body>
 </html>
